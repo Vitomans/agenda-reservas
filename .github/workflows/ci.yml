@@ -31,6 +31,8 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://agenda:agenda@localhost:5432/agenda
+      # Clave solo para los tests del CI. No es la de producción.
+      JWT_SECRET: clave-de-prueba-solo-para-el-ci-no-usar-en-produccion
 
     steps:
       - name: Checkout code
