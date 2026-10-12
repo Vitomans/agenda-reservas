@@ -11,6 +11,7 @@ A booking app for a fictional padel club. Players pick a court and a day, see th
 - **Auth:** JWT in an httpOnly cookie, passwords hashed with bcrypt
 - **Security:** helmet, CORS and rate limiting on login
 - **Validation:** Zod
+- **Dates and time zones:** Luxon
 - **Tests:** Vitest and Supertest
 - **Tooling:** Docker Compose for the local database, GitHub Actions for CI
 - **Web:** Next.js *(coming soon)*
@@ -64,8 +65,21 @@ The API runs on [http://localhost:4000](http://localhost:4000). Check it with [`
 | POST | `/api/auth/login` | public | Signs in (sets the session cookie) |
 | POST | `/api/auth/logout` | public | Signs out (clears the session cookie) |
 | GET | `/api/auth/yo` | signed in | Returns the current user |
+| GET | `/api/recursos` | signed in | Lists the courts |
+| GET | `/api/recursos/:id/disponibilidad?fecha=YYYY-MM-DD` | signed in | Time slots of a day: free, taken, mine or past |
+| POST | `/api/reservas` | signed in | Books a slot (`201`, or `409` if it is already taken) |
+| GET | `/api/reservas/mias` | signed in | My upcoming bookings |
+| DELETE | `/api/reservas/:id` | owner or admin | Cancels a booking |
 
 Errors always come back as JSON, for example `{ "error": "Email o contraseña incorrectos" }`. Validation errors (400) also include `detalles`, with the problems for each field.
+
+## Booking rules
+
+- Slots last 1 hour and start on the hour, from 08:00 to 22:00 (club time, `America/Santiago`).
+- You can book from today up to 6 days ahead, but never in the past.
+- A court can't be booked twice for the same slot. If two people try at the same moment, only one gets it and the other gets a `409`.
+- Each player can have at most 2 active bookings.
+- Only the owner or an admin can cancel a booking, and only before it starts. Cancelling keeps the record and frees the slot.
 
 ## Scripts (inside `api/`)
 
