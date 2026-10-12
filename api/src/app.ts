@@ -5,6 +5,8 @@ import helmet from "helmet";
 import { config } from "./config.ts";
 import { manejarErrores, rutaNoEncontrada } from "./middlewares/errores.ts";
 import { crearRutasAuth } from "./rutas/auth.ts";
+import { crearRutasRecursos } from "./rutas/recursos.ts";
+import { crearRutasReservas } from "./rutas/reservas.ts";
 
 // Arma la app de Express sin ponerla a escuchar en un puerto.
 // Así los tests la usan directo con Supertest, y server.ts la levanta de verdad.
@@ -22,6 +24,8 @@ export function crearApp() {
   });
 
   app.use("/api/auth", crearRutasAuth());
+  app.use("/api/recursos", crearRutasRecursos());
+  app.use("/api/reservas", crearRutasReservas());
 
   app.use(rutaNoEncontrada);
   app.use(manejarErrores);
