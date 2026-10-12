@@ -37,9 +37,13 @@ export async function entrarComoAdmin(app: Express) {
   return navegador;
 }
 
+export function nombreDeCanchaDePrueba() {
+  return `${PREFIJO_CANCHA_DE_PRUEBA}${randomUUID()}`;
+}
+
 // Cada test usa su propia cancha, así no choca con otros tests ni con reservas hechas a mano
 export function crearCanchaDePrueba({ activo = true } = {}) {
-  return db.recurso.create({ data: { nombre: `${PREFIJO_CANCHA_DE_PRUEBA}${randomUUID()}`, activo } });
+  return db.recurso.create({ data: { nombre: nombreDeCanchaDePrueba(), activo } });
 }
 
 // El inicio de un bloque en la hora del club. Por ejemplo, bloque(1, 10) = mañana a las 10:00.
