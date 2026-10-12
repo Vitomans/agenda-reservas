@@ -19,3 +19,15 @@ describe("rutas que no existen", () => {
     expect(respuesta.body).toEqual({ error: "Ruta no encontrada" });
   });
 });
+
+describe("pedidos con un JSON mal escrito", () => {
+  it("responden 400 en vez de un error interno", async () => {
+    const respuesta = await request(crearApp())
+      .post("/api/salud")
+      .set("Content-Type", "application/json")
+      .send("{ esto no es json");
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body).toEqual({ error: "El cuerpo del pedido no es un JSON válido" });
+  });
+});
