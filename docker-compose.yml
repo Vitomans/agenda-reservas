@@ -1,0 +1,23 @@
+# PostgreSQL para trabajar en local, sin instalarlo en el computador.
+# Se levanta con "docker compose up -d" y se apaga con "docker compose down".
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      # Usuario y contraseña solo para desarrollo local
+      POSTGRES_USER: agenda
+      POSTGRES_PASSWORD: agenda
+      POSTGRES_DB: agenda
+    ports:
+      - "5432:5432"
+    volumes:
+      # Los datos se guardan en un volumen y no se pierden al apagar el contenedor
+      - datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agenda"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  datos:
