@@ -8,7 +8,8 @@ A booking app for a fictional padel club. Players pick a court and a day, see th
 
 - **API:** Node.js, Express 5 and TypeScript
 - **Database:** PostgreSQL with Prisma ORM (migrations and seed data)
-- **Security:** helmet and CORS
+- **Auth:** JWT in an httpOnly cookie, passwords hashed with bcrypt
+- **Security:** helmet, CORS and rate limiting on login
 - **Validation:** Zod
 - **Tests:** Vitest and Supertest
 - **Tooling:** Docker Compose for the local database, GitHub Actions for CI
@@ -36,7 +37,7 @@ docker compose up -d
 
 # 2. Set up the API
 cd api
-cp .env.example .env
+cp .env.example .env   # then set JWT_SECRET to a long random value
 npm install
 npm run db:migrar    # creates the tables
 npm run db:seed      # adds demo users and courts
@@ -53,6 +54,18 @@ The API runs on [http://localhost:4000](http://localhost:4000). Check it with [`
 |---|---|---|
 | Admin | `admin@example.com` | `demo1234` |
 | Player | `cliente@example.com` | `demo1234` |
+
+## API endpoints
+
+| Method | Route | Access | What it does |
+|---|---|---|---|
+| GET | `/api/salud` | public | Health check |
+| POST | `/api/auth/registro` | public | Creates a player account and signs in |
+| POST | `/api/auth/login` | public | Signs in (sets the session cookie) |
+| POST | `/api/auth/logout` | public | Signs out (clears the session cookie) |
+| GET | `/api/auth/yo` | signed in | Returns the current user |
+
+Errors always come back as JSON, for example `{ "error": "Email o contraseña incorrectos" }`. Validation errors (400) also include `detalles`, with the problems for each field.
 
 ## Scripts (inside `api/`)
 
