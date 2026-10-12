@@ -6,6 +6,7 @@ import { config } from "./config.ts";
 import { manejarErrores, rutaNoEncontrada } from "./middlewares/errores.ts";
 import { crearRutasAdmin } from "./rutas/admin.ts";
 import { crearRutasAuth } from "./rutas/auth.ts";
+import { crearRutasHorario } from "./rutas/horario.ts";
 import { crearRutasRecursos } from "./rutas/recursos.ts";
 import { crearRutasReservas } from "./rutas/reservas.ts";
 
@@ -25,6 +26,7 @@ export function crearApp() {
   });
 
   app.use("/api/auth", crearRutasAuth());
+  app.use("/api/horario", crearRutasHorario());
   app.use("/api/recursos", crearRutasRecursos());
   app.use("/api/reservas", crearRutasReservas());
   app.use("/api/admin", crearRutasAdmin());
