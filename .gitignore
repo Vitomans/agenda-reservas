@@ -1,0 +1,22 @@
+# Dependencias
+node_modules/
+
+# Código compilado
+dist/
+.next/
+out/
+
+# Cliente de Prisma (se genera con "prisma generate" al instalar)
+api/src/generated/
+
+# Variables de entorno (solo se sube el .env.example)
+.env*
+!.env.example
+
+# Tests
+coverage/
+
+# Varios
+.DS_Store
+*.log
+*.tsbuildinfo

@@ -1,0 +1,21 @@
+import request from "supertest";
+import { describe, expect, it } from "vitest";
+import { crearApp } from "../src/app.ts";
+
+describe("GET /api/salud", () => {
+  it("responde que la API está funcionando", async () => {
+    const respuesta = await request(crearApp()).get("/api/salud");
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toEqual({ estado: "ok" });
+  });
+});
+
+describe("rutas que no existen", () => {
+  it("responden 404 con un mensaje en JSON", async () => {
+    const respuesta = await request(crearApp()).get("/api/no-existe");
+
+    expect(respuesta.status).toBe(404);
+    expect(respuesta.body).toEqual({ error: "Ruta no encontrada" });
+  });
+});
