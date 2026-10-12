@@ -1,5 +1,5 @@
-import bcrypt from "bcryptjs";
 import { db } from "../src/db.ts";
+import { hashearPassword } from "../src/servicios/passwords.ts";
 
 // Datos de ejemplo para desarrollo y para la demo pública.
 // Se puede correr varias veces: "upsert" crea cada dato si no existe y, si existe, lo deja igual al de acá.
@@ -10,7 +10,7 @@ const CONTRASENA_DEMO = "demo1234";
 
 const CANCHAS = ["Cancha 1", "Cancha 2", "Cancha 3", "Cancha 4"];
 
-const passwordHash = await bcrypt.hash(CONTRASENA_DEMO, 10);
+const passwordHash = await hashearPassword(CONTRASENA_DEMO);
 
 const usuariosDemo = [
   { nombre: "Admin Demo", email: "admin@example.com", rol: "ADMIN" as const },
