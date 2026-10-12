@@ -1,25 +1,14 @@
-import { randomUUID } from "node:crypto";
 import request from "supertest";
 import { afterAll, describe, expect, it } from "vitest";
 import { crearApp } from "../src/app.ts";
 import { db } from "../src/db.ts";
+import { borrarDatosDePrueba, cookieDeSesion, emailNuevo } from "./ayudantes.ts";
 
-// Estos tests usan la base de datos de verdad (la de Docker en local y la del CI).
-// Usan los usuarios demo del seed, y las cuentas nuevas llevan un dominio propio para borrarlas al final.
-const DOMINIO_DE_PRUEBA = "@tests.example.com";
-
-function emailNuevo() {
-  return `jugador-${randomUUID()}${DOMINIO_DE_PRUEBA}`;
-}
-
-// Supertest devuelve las cookies como texto, por ejemplo "sesion=abc; Path=/; HttpOnly; SameSite=Lax"
-function cookieDeSesion(respuesta: request.Response) {
-  const cookies = respuesta.headers["set-cookie"] as unknown as string[] | undefined;
-  return cookies?.find((cookie) => cookie.startsWith("sesion="));
-}
+// Estos tests usan la base de datos de verdad (la de Docker en local y la del CI)
+// y los usuarios demo del seed.
 
 afterAll(async () => {
-  await db.usuario.deleteMany({ where: { email: { endsWith: DOMINIO_DE_PRUEBA } } });
+  await borrarDatosDePrueba();
   await db.$disconnect();
 });
 
