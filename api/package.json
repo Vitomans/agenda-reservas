@@ -9,7 +9,11 @@
     "start": "node dist/server.js",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "postinstall": "prisma generate",
+    "db:migrar": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:reiniciar": "prisma migrate reset"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

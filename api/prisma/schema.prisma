@@ -1,0 +1,61 @@
+// Esquema de la base de datos.
+// "npm run db:migrar" crea las tablas a partir de este archivo y
+// "prisma generate" crea el cliente con los tipos para TypeScript.
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Rol {
+  ADMIN
+  CLIENTE
+}
+
+enum EstadoReserva {
+  CONFIRMADA
+  CANCELADA
+}
+
+model Usuario {
+  id           String    @id @default(uuid())
+  nombre       String
+  email        String    @unique
+  passwordHash String
+  rol          Rol       @default(CLIENTE)
+  reservas     Reserva[]
+  creadoEn     DateTime  @default(now())
+}
+
+// Lo que se reserva. En este demo, una cancha de pádel.
+model Recurso {
+  id       String    @id @default(uuid())
+  nombre   String    @unique
+  activo   Boolean   @default(true)
+  reservas Reserva[]
+  creadoEn DateTime  @default(now())
+}
+
+model Reserva {
+  id        String        @id @default(uuid())
+  recurso   Recurso       @relation(fields: [recursoId], references: [id])
+  recursoId String
+  usuario   Usuario       @relation(fields: [usuarioId], references: [id])
+  usuarioId String
+  inicio    DateTime
+  fin       DateTime
+  estado    EstadoReserva @default(CONFIRMADA)
+  creadoEn  DateTime      @default(now())
+
+  // Una cancha no puede tener dos reservas confirmadas a la misma hora.
+  // Lo asegura la propia base de datos con un índice único "parcial":
+  // solo mira las reservas CONFIRMADAS, así que las canceladas no bloquean el horario.
+  @@unique([recursoId, inicio], map: "reserva_unica", where: { estado: "CONFIRMADA" })
+  @@index([recursoId, inicio])
+  @@index([usuarioId])
+}

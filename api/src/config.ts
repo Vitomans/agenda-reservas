@@ -6,6 +6,7 @@ import { z } from "zod";
 const esquema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
   WEB_URL: z.url().default("http://localhost:3000"),
+  DATABASE_URL: z.string().min(1),
 });
 
 const resultado = esquema.safeParse(process.env);
