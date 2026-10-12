@@ -1,4 +1,5 @@
 import type { Request, RequestHandler } from "express";
+import type { Rol } from "../generated/prisma/enums.ts";
 import { leerToken, NOMBRE_COOKIE, type UsuarioSesion } from "../servicios/sesion.ts";
 import { ErrorHttp } from "./errores.ts";
 
@@ -28,4 +29,15 @@ export function usuarioDeSesion(req: Request): UsuarioSesion {
     throw new ErrorHttp(401, "Tienes que iniciar sesión");
   }
   return req.usuario;
+}
+
+// Deja pasar solo a los roles indicados; al resto le responde 403.
+// Va después de requiereSesion: primero se revisa quién eres (401) y después qué puedes hacer (403).
+export function soloRoles(...roles: Rol[]): RequestHandler {
+  return (req, _res, next) => {
+    if (!roles.includes(usuarioDeSesion(req).rol)) {
+      throw new ErrorHttp(403, "No tienes permiso para hacer esto");
+    }
+    next();
+  };
 }

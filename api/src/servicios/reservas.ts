@@ -1,6 +1,13 @@
 import { db, esErrorDePrisma } from "../db.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
-import { bloquesDelDia, DIAS_DE_ANTICIPACION, diaEnElClub, diasReservables, esInicioDeBloque } from "./horario.ts";
+import {
+  bloquesDelDia,
+  DIAS_DE_ANTICIPACION,
+  diaEnElClub,
+  diasReservables,
+  esInicioDeBloque,
+  limitesDelDia,
+} from "./horario.ts";
 import type { UsuarioSesion } from "./sesion.ts";
 
 // Reglas de negocio de las reservas. Las rutas solo leen el pedido y llaman a estas funciones.
@@ -114,6 +121,18 @@ export function reservasProximas(usuarioId: string) {
     where: { usuarioId, estado: "CONFIRMADA", fin: { gt: new Date() } },
     orderBy: { inicio: "asc" },
     select: DATOS_RESERVA,
+  });
+}
+
+// Para el admin: todas las reservas de un día (confirmadas y canceladas), de cualquier cancha.
+// A diferencia de los clientes, el admin puede mirar cualquier día, también los pasados.
+export function reservasDelDia(fecha: string) {
+  const { desde, hasta } = limitesDelDia(fecha);
+
+  return db.reserva.findMany({
+    where: { inicio: { gte: desde, lt: hasta } },
+    orderBy: [{ inicio: "asc" }, { recurso: { nombre: "asc" } }],
+    select: { ...DATOS_RESERVA, usuario: { select: { id: true, nombre: true, email: true } } },
   });
 }
 

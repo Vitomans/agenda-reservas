@@ -4,6 +4,7 @@ import express from "express";
 import helmet from "helmet";
 import { config } from "./config.ts";
 import { manejarErrores, rutaNoEncontrada } from "./middlewares/errores.ts";
+import { crearRutasAdmin } from "./rutas/admin.ts";
 import { crearRutasAuth } from "./rutas/auth.ts";
 import { crearRutasRecursos } from "./rutas/recursos.ts";
 import { crearRutasReservas } from "./rutas/reservas.ts";
@@ -26,6 +27,7 @@ export function crearApp() {
   app.use("/api/auth", crearRutasAuth());
   app.use("/api/recursos", crearRutasRecursos());
   app.use("/api/reservas", crearRutasReservas());
+  app.use("/api/admin", crearRutasAdmin());
 
   app.use(rutaNoEncontrada);
   app.use(manejarErrores);

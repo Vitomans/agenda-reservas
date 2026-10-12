@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-// GET /api/recursos/:id/disponibilidad?fecha=2026-10-13
-export const esquemaDisponibilidad = z.object({
+// "?fecha=2026-10-13", en la disponibilidad y en las reservas del día del admin
+export const esquemaFecha = z.object({
   fecha: z.iso.date({ error: "La fecha es obligatoria y debe tener el formato AAAA-MM-DD" }),
 });
 

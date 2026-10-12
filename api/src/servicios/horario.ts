@@ -48,6 +48,12 @@ export function bloquesDelDia(fecha: string): Bloque[] {
   return bloques;
 }
 
+// Desde y hasta cuándo va un día del club (de medianoche a medianoche, en la hora del club)
+export function limitesDelDia(fecha: string) {
+  const medianoche = DateTime.fromISO(fecha, { zone: ZONA_HORARIA }).startOf("day");
+  return { desde: medianoche.toJSDate(), hasta: medianoche.plus({ days: 1 }).toJSDate() };
+}
+
 // Revisa que una fecha sea el comienzo de un bloque: hora en punto y dentro del horario del club
 export function esInicioDeBloque(inicio: Date) {
   const local = enElClub(inicio);
