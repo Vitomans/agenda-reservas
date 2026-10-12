@@ -1,5 +1,4 @@
-import { db } from "../db.ts";
-import { Prisma } from "../generated/prisma/client.ts";
+import { db, esErrorDePrisma } from "../db.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
 import { bloquesDelDia, DIAS_DE_ANTICIPACION, diaEnElClub, diasReservables, esInicioDeBloque } from "./horario.ts";
 import type { UsuarioSesion } from "./sesion.ts";
@@ -102,7 +101,7 @@ export async function crearReserva(usuarioId: string, recursoId: string, inicio:
   } catch (error) {
     // No se revisa antes si el horario está libre: lo decide el índice único de la base de datos.
     // Así, si dos personas reservan el mismo bloque al mismo tiempo, solo una lo consigue.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    if (esErrorDePrisma(error, "P2002")) {
       throw new ErrorHttp(409, "Ese horario ya está reservado");
     }
     throw error;

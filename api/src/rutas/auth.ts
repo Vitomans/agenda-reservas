@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
-import { db } from "../db.ts";
-import { Prisma } from "../generated/prisma/client.ts";
+import { db, esErrorDePrisma } from "../db.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
 import { requiereSesion, usuarioDeSesion } from "../middlewares/sesion.ts";
 import { compararPassword, hashearPassword } from "../servicios/passwords.ts";
@@ -41,7 +40,7 @@ export function crearRutasAuth() {
     } catch (error) {
       // P2002 = se rompió una regla de "valor único": ya hay una cuenta con ese email.
       // Se revisa acá (y no antes de crear) para que funcione aunque lleguen dos registros a la vez.
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      if (esErrorDePrisma(error, "P2002")) {
         throw new ErrorHttp(409, "Ya existe una cuenta con ese email");
       }
       throw error;
