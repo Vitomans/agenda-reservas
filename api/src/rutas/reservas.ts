@@ -1,16 +1,17 @@
 import { Router } from "express";
-import { requiereSesion, usuarioDeSesion } from "../middlewares/sesion.ts";
+import { requiereSesion, soloRoles, usuarioDeSesion } from "../middlewares/sesion.ts";
 import { cancelarReserva, crearReserva, reservasProximas } from "../servicios/reservas.ts";
 import { esquemaNuevaReserva } from "../validacion/reservas.ts";
 
 // Rutas de /api/reservas. Todas piden sesión.
+// Reservar y "mis reservas" son solo para clientes: el admin gestiona desde /api/admin.
 export function crearRutasReservas() {
   const rutas = Router();
 
   rutas.use(requiereSesion);
 
   // Reservar un bloque: 201 si se pudo, 409 si ya está ocupado
-  rutas.post("/", async (req, res) => {
+  rutas.post("/", soloRoles("CLIENTE"), async (req, res) => {
     const { recursoId, inicio } = esquemaNuevaReserva.parse(req.body);
     const reserva = await crearReserva(usuarioDeSesion(req).id, recursoId, inicio);
 
@@ -18,7 +19,7 @@ export function crearRutasReservas() {
   });
 
   // Mis próximas reservas
-  rutas.get("/mias", async (req, res) => {
+  rutas.get("/mias", soloRoles("CLIENTE"), async (req, res) => {
     const reservas = await reservasProximas(usuarioDeSesion(req).id);
 
     res.json({ reservas });
