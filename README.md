@@ -67,9 +67,15 @@ The API runs on [http://localhost:4000](http://localhost:4000). Check it with [`
 | GET | `/api/auth/yo` | signed in | Returns the current user |
 | GET | `/api/recursos` | signed in | Lists the courts |
 | GET | `/api/recursos/:id/disponibilidad?fecha=YYYY-MM-DD` | signed in | Time slots of a day: free, taken, mine or past |
-| POST | `/api/reservas` | signed in | Books a slot (`201`, or `409` if it is already taken) |
-| GET | `/api/reservas/mias` | signed in | My upcoming bookings |
+| POST | `/api/reservas` | player | Books a slot (`201`, or `409` if it is already taken) |
+| GET | `/api/reservas/mias` | player | My upcoming bookings |
 | DELETE | `/api/reservas/:id` | owner or admin | Cancels a booking |
+| GET | `/api/admin/reservas?fecha=YYYY-MM-DD` | admin | All bookings of a day, any date |
+| GET | `/api/admin/recursos` | admin | All courts, including inactive ones |
+| POST | `/api/admin/recursos` | admin | Creates a court |
+| PATCH | `/api/admin/recursos/:id` | admin | Renames a court or turns it on/off |
+
+Without a session the API answers `401`; with a session but the wrong role, `403`. Courts are never deleted, only turned off, so the booking history stays complete.
 
 Errors always come back as JSON, for example `{ "error": "Email o contraseña incorrectos" }`. Validation errors (400) also include `detalles`, with the problems for each field.
 
