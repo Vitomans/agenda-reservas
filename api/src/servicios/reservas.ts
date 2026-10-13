@@ -138,6 +138,7 @@ export function reservasDelDia(fecha: string) {
 
 // Cancelar no borra la reserva: le cambia el estado, así queda el historial.
 // El índice único solo mira las confirmadas, así que el horario vuelve a quedar libre.
+// Devuelve la cancha y el horario que se liberaron, para poder avisar en vivo.
 export async function cancelarReserva(reservaId: string, usuario: UsuarioSesion) {
   const reserva = await db.reserva.findUnique({ where: { id: reservaId } });
 
@@ -154,5 +155,9 @@ export async function cancelarReserva(reservaId: string, usuario: UsuarioSesion)
     throw new ErrorHttp(400, "No se puede cancelar una reserva que ya empezó");
   }
 
-  await db.reserva.update({ where: { id: reservaId }, data: { estado: "CANCELADA" } });
+  return db.reserva.update({
+    where: { id: reservaId },
+    data: { estado: "CANCELADA" },
+    select: { recursoId: true, inicio: true },
+  });
 }
