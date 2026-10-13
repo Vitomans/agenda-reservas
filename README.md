@@ -12,9 +12,9 @@ A booking app for a fictional padel club. Players pick a court and a day, see th
 - **Security:** helmet, CORS and rate limiting on login
 - **Validation:** Zod
 - **Dates and time zones:** Luxon
-- **Tests:** Vitest and Supertest
+- **Web:** Next.js 16 (App Router), React 19, Tailwind CSS 4 and TanStack Query
+- **Tests:** Vitest, Supertest and Testing Library
 - **Tooling:** Docker Compose for the local database, GitHub Actions for CI
-- **Web:** Next.js *(coming soon)*
 
 ## Project structure
 
@@ -24,7 +24,11 @@ agenda-reservas/
 │   ├── prisma/           ← database schema, migrations and seed data
 │   ├── src/
 │   └── tests/
-├── web/                  ← frontend (Next.js, coming soon)
+├── web/                  ← frontend (Next.js)
+│   ├── app/              ← pages: login, registro, reservar, mis-reservas, admin
+│   ├── components/
+│   ├── lib/              ← API client, data hooks and date helpers
+│   └── tests/
 └── docker-compose.yml    ← local PostgreSQL
 ```
 
@@ -45,9 +49,16 @@ npm run db:seed      # adds demo users and courts
 
 # 3. Start the API
 npm run dev
+
+# 4. In another terminal, start the web app
+cd web
+npm install
+npm run dev
 ```
 
-The API runs on [http://localhost:4000](http://localhost:4000). Check it with [`/api/salud`](http://localhost:4000/api/salud).
+Open [http://localhost:3000](http://localhost:3000) and use the **Jugador demo** (player) or **Admin demo** buttons (the UI is in Spanish). The API runs on [http://localhost:4000](http://localhost:4000).
+
+The web app forwards every `/api/...` request to the API (Next.js rewrites). To the browser, the API lives on the same site as the page, so the session cookie is first-party and there is no CORS to deal with. Set `API_URL` in `web/.env.local` if the API runs somewhere else.
 
 ### Demo users
 
@@ -87,7 +98,9 @@ Errors always come back as JSON, for example `{ "error": "Email o contraseña in
 - Each player can have at most 2 active bookings.
 - Only the owner or an admin can cancel a booking, and only before it starts. Cancelling keeps the record and frees the slot.
 
-## Scripts (inside `api/`)
+## Scripts
+
+Inside `api/`:
 
 | Command | What it does |
 |---|---|
@@ -100,6 +113,8 @@ Errors always come back as JSON, for example `{ "error": "Email o contraseña in
 | `npm run db:migrar` | Applies the migrations (and creates new ones after a schema change) |
 | `npm run db:seed` | Loads the demo data |
 | `npm run db:reiniciar` | Deletes everything and rebuilds the database from scratch |
+
+Inside `web/`: `npm run dev`, `npm run build`, `npm start`, `npm run lint`, `npm run typecheck` and `npm test` do the same for the web app.
 
 ## License
 
