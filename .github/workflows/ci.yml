@@ -35,35 +35,35 @@ jobs:
       JWT_SECRET: clave-de-prueba-solo-para-el-ci-no-usar-en-produccion
 
     steps:
-      - name: Checkout code
+      - name: Descargar el código
         uses: actions/checkout@v7
 
-      - name: Set up Node.js
+      - name: Instalar Node.js
         uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: api/package-lock.json
 
-      - name: Install dependencies
+      - name: Instalar las dependencias
         run: npm ci
 
-      - name: Lint
+      - name: Revisar el estilo (lint)
         run: npm run lint
 
-      - name: Type check
+      - name: Revisar los tipos
         run: npm run typecheck
 
-      - name: Apply database migrations
+      - name: Aplicar las migraciones
         run: npx prisma migrate deploy
 
-      - name: Seed the database
+      - name: Cargar los datos de prueba
         run: npm run db:seed
 
-      - name: Test
+      - name: Tests unitarios
         run: npm test
 
-      - name: Build
+      - name: Compilar (build)
         run: npm run build
 
   web:
@@ -74,27 +74,27 @@ jobs:
         working-directory: web
 
     steps:
-      - name: Checkout code
+      - name: Descargar el código
         uses: actions/checkout@v7
 
-      - name: Set up Node.js
+      - name: Instalar Node.js
         uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      - name: Install dependencies
+      - name: Instalar las dependencias
         run: npm ci
 
-      - name: Lint
+      - name: Revisar el estilo (lint)
         run: npm run lint
 
-      - name: Type check
+      - name: Revisar los tipos
         run: npm run typecheck
 
-      - name: Test
+      - name: Tests unitarios
         run: npm test
 
-      - name: Build
+      - name: Compilar (build)
         run: npm run build
