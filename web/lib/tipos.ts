@@ -45,3 +45,9 @@ export type Reserva = {
 export type ReservaAdmin = Reserva & {
   usuario: { id: string; nombre: string; email: string };
 };
+
+// Lo que trae cada aviso en vivo: qué cancha y qué horario cambió (ver api/src/tiempoReal.ts)
+export type CambioEnVivo = {
+  recursoId: string;
+  inicio: string;
+};

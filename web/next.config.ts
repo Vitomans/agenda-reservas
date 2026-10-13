@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 // Dirección de la API. En local es la que levanta "npm run dev" dentro de api/.
-const API_URL = process.env.API_URL ?? "http://localhost:4000";
+// La misma variable la usa la conexión en vivo (lib/tiempoReal.ts).
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 const nextConfig: NextConfig = {
   // No generar el archivo AGENTS.md (instrucciones para asistentes de IA) al correr "next dev"

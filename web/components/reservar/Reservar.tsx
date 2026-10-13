@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { useDisponibilidad, useHorario, useRecursos, useReservar } from "@/lib/consultas";
 import { describirHorario, diaLargo, horaEnElClub } from "@/lib/fechas";
+import { useTiempoReal } from "@/lib/tiempoReal";
 import type { Reserva } from "@/lib/tipos";
 import { Aviso, Cargando } from "../Aviso";
 import { Boton } from "../Boton";
+import { EnVivo } from "../EnVivo";
 import { GrillaDeHorarios, Leyenda } from "./GrillaDeHorarios";
 import { SelectorDeCancha } from "./SelectorDeCancha";
 import { TiraDeDias } from "./TiraDeDias";
@@ -29,8 +31,12 @@ export function Reservar() {
   const recurso = recursos.data?.find((r) => r.id === recursoElegido) ?? recursos.data?.[0];
 
   const disponibilidad = useDisponibilidad(recurso?.id, dia);
+  // Si alguien reserva o cancela en esta cancha, la grilla se actualiza sola
+  const enVivo = useTiempoReal(recurso ? [recurso.id] : []);
   // El bloque elegido, solo si sigue libre (alguien podría haberlo tomado mientras tanto)
   const bloqueElegido = disponibilidad.data?.find((b) => b.inicio === inicioElegido && b.estado === "libre");
+  // El bloque elegido, si otra persona lo reservó mientras se decidía
+  const bloqueTomado = disponibilidad.data?.find((b) => b.inicio === inicioElegido && b.estado === "ocupado");
 
   if (horario.isPending || recursos.isPending) {
     return <Cargando />;
@@ -66,9 +72,12 @@ export function Reservar() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Reservar cancha</h1>
-        <p className="mt-1 text-sm text-slate-600">Elige la cancha, el día y la hora. Cada reserva dura 1 hora.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Reservar cancha</h1>
+          <p className="mt-1 text-sm text-slate-600">Elige la cancha, el día y la hora. Cada reserva dura 1 hora.</p>
+        </div>
+        <EnVivo conectado={enVivo} />
       </div>
 
       <div className="space-y-3">
@@ -100,6 +109,9 @@ export function Reservar() {
         </Aviso>
       )}
       {reservar.error && <Aviso>{reservar.error.message}</Aviso>}
+      {bloqueTomado && !reservar.error && (
+        <Aviso>Otra persona acaba de reservar las {bloqueTomado.hora}. Elige otro horario.</Aviso>
+      )}
 
       <section aria-labelledby="titulo-horarios" className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
