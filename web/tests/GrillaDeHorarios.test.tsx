@@ -44,4 +44,10 @@ describe("GrillaDeHorarios", () => {
     const elegido = screen.getByRole("button", { name: "09:00, Elegido" });
     expect(elegido).toHaveAttribute("aria-pressed", "true");
   });
+
+  it("si otra persona toma la hora elegida, la muestra ocupada", () => {
+    render(<GrillaDeHorarios bloques={BLOQUES} elegido={BLOQUES[2].inicio} onElegir={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "10:00, Ocupado" })).toBeDisabled();
+  });
 });

@@ -30,7 +30,8 @@ export function GrillaDeHorarios({ bloques, elegido, onElegir }: Props) {
   return (
     <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
       {bloques.map((bloque) => {
-        const estaElegido = bloque.inicio === elegido;
+        // Si otra persona tomó la hora elegida, se muestra como ocupada y no como elegida
+        const estaElegido = bloque.inicio === elegido && bloque.estado === "libre";
         const estado = ESTADOS[bloque.estado];
         const texto = estaElegido ? "Elegido" : estado.texto;
 
