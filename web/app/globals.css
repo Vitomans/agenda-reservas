@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+}
+
+@layer base {
+  /* Tailwind 4 deja los botones con la flecha normal; acá vuelven a mostrar la "manito" */
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
