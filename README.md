@@ -11,6 +11,7 @@ A booking app for a fictional padel club. Players pick a court and a day, see th
 - **Auth:** JWT in an httpOnly cookie, passwords hashed with bcrypt
 - **Security:** helmet, CORS and rate limiting on login
 - **Validation:** Zod
+- **Real time:** Socket.io
 - **Dates and time zones:** Luxon
 - **Web:** Next.js 16 (App Router), React 19, Tailwind CSS 4 and TanStack Query
 - **Tests:** Vitest, Supertest and Testing Library
@@ -58,7 +59,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) and use the **Jugador demo** (player) or **Admin demo** buttons (the UI is in Spanish). The API runs on [http://localhost:4000](http://localhost:4000).
 
-The web app forwards every `/api/...` request to the API (Next.js rewrites). To the browser, the API lives on the same site as the page, so the session cookie is first-party and there is no CORS to deal with. Set `API_URL` in `web/.env.local` if the API runs somewhere else.
+The web app forwards every `/api/...` request to the API (Next.js rewrites). To the browser, the API lives on the same site as the page, so the session cookie is first-party and there is no CORS to deal with. The real-time connection is the exception: rewrites can't carry a long-lived connection, so Socket.io connects straight to the API. Set `NEXT_PUBLIC_API_URL` in `web/.env.local` if the API runs somewhere else.
 
 ### Demo users
 
@@ -97,6 +98,15 @@ Errors always come back as JSON, for example `{ "error": "Email o contraseña in
 - A court can't be booked twice for the same slot. If two people try at the same moment, only one gets it and the other gets a `409`.
 - Each player can have at most 2 active bookings.
 - Only the owner or an admin can cancel a booking, and only before it starts. Cancelling keeps the record and frees the slot.
+
+## Real-time updates
+
+The API and Socket.io share one HTTP server. When a booking is created or cancelled, the API tells every browser that is looking at that court, and each one fetches its time slots again. Nobody has to reload the page.
+
+- Each court has its own Socket.io **room** (`recurso:<id>`). The page says which courts it is watching with `canchas:seguir`: a player follows the court on screen, and the admin panel follows all of them.
+- The server sends `reserva:creada` and `reserva:cancelada` with `{ recursoId, inicio }`. That is all: no names or emails travel in real time, so the socket doesn't need the session cookie.
+- On the page, an event just marks that court's data as stale and TanStack Query fetches it again through the normal API. The REST API stays the only source of truth.
+- If the connection drops, Socket.io reconnects on its own. The page then joins its rooms again and refreshes everything, in case it missed an event. A small "En vivo" badge shows whether the connection is up.
 
 ## Scripts
 
