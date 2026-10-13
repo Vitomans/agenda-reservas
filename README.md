@@ -4,6 +4,10 @@
 
 A booking app for a fictional padel club. Players pick a court and a day, see the free time slots and book one. When someone books, the slot turns busy on everyone else's screen at once, without reloading the page. Admins see and manage all bookings.
 
+![Two players on the same court: the second screen updates on its own](docs/demo.gif)
+
+*Two players look at the same court. Player 1 books 17:00 and it turns busy on Player 2's screen at once. Then both pick 18:00, Player 1 books it first, and Player 2 is told right away.*
+
 ## Tech stack
 
 - **API:** Node.js, Express 5 and TypeScript
@@ -17,6 +21,30 @@ A booking app for a fictional padel club. Players pick a court and a day, see th
 - **Tests:** Vitest, Supertest and Testing Library
 - **Tooling:** Docker Compose for the local database, GitHub Actions for CI
 
+## Architecture
+
+```mermaid
+flowchart LR
+    browser["Browser<br/>React + TanStack Query"]
+    next["Next.js server<br/>rewrites /api"]
+    subgraph apiServer["API server · Node.js"]
+        express["Express<br/>REST API"]
+        socket["Socket.io"]
+    end
+    db[("PostgreSQL")]
+
+    browser -->|"HTTP /api/... with the session cookie"| next
+    next -->|proxy| express
+    express -->|Prisma| db
+    express -->|"booking created or cancelled"| socket
+    socket -.->|"live events · WebSocket"| browser
+```
+
+1. The page calls `/api/...` on its own site, and the Next.js server forwards the request to Express.
+2. Express checks the session and validates the input with Zod. It then applies the booking rules and saves to PostgreSQL through Prisma.
+3. When a booking is created or cancelled, Express tells Socket.io, which notifies the browsers watching that court.
+4. Those browsers fetch the time slots again through the REST API.
+
 ## Project structure
 
 ```
@@ -28,8 +56,9 @@ agenda-reservas/
 ├── web/                  ← frontend (Next.js)
 │   ├── app/              ← pages: login, registro, reservar, mis-reservas, admin
 │   ├── components/
-│   ├── lib/              ← API client, data hooks and date helpers
+│   ├── lib/              ← API client, data hooks, real-time hook and date helpers
 │   └── tests/
+├── docs/                 ← the demo GIF
 └── docker-compose.yml    ← local PostgreSQL
 ```
 
@@ -107,6 +136,39 @@ The API and Socket.io share one HTTP server. When a booking is created or cancel
 - The server sends `reserva:creada` and `reserva:cancelada` with `{ recursoId, inicio }`. That is all: no names or emails travel in real time, so the socket doesn't need the session cookie.
 - On the page, an event just marks that court's data as stale and TanStack Query fetches it again through the normal API. The REST API stays the only source of truth.
 - If the connection drops, Socket.io reconnects on its own. The page then joins its rooms again and refreshes everything, in case it missed an event. A small "En vivo" badge shows whether the connection is up.
+
+## Technical decisions
+
+**The database blocks double bookings.** A partial unique index on `(court, start)` only counts confirmed bookings. The API doesn't ask "is this slot free?" before saving: two requests could both get a "yes" at the same moment. It just tries to insert, and the database lets only one through. The other one gets a `409`. Cancelled bookings don't count, so cancelling frees the slot.
+
+**The 2-booking limit holds under concurrency.** Counting a player's active bookings and creating the new one happen in one transaction that locks the player's row (`SELECT ... FOR UPDATE`). If the same player sends several requests at once, they wait in line instead of all passing the check. A test sends parallel requests, and it fails if the lock is removed.
+
+**The session lives in an httpOnly cookie, on the same site as the page.** The JWT (HS256, valid for 1 day) goes in an `httpOnly`, `SameSite=Lax` cookie, so page scripts can't read it. The web app reaches the API through Next.js rewrites, so the cookie is first-party even if the API is hosted on another domain. That matters because Safari blocks third-party cookies. It also means the REST API needs no CORS.
+
+**401 and 403 mean different things.** `requiereSesion` answers "who are you?" (`401`), and `soloRoles` answers "are you allowed?" (`403`). The role is read from the token, without a database query. The trade-off: if an admin changes someone's role, it takes effect when their token expires.
+
+**Times are stored in UTC and shown in club time.** Days and slots are calculated in `America/Santiago` with Luxon. The server also decides what "today" is (`GET /api/horario`), so a wrong clock or time zone on the visitor's device can't change the booking rules.
+
+**Real-time events are only a signal.** An event says which court and slot changed, and nothing else: no names, no emails, so the socket needs no session. The page marks that data as stale and TanStack Query fetches it again from the REST API, which stays the single source of truth. There is no second copy of the state to keep in sync, and a missed event is fixed by refetching everything on reconnect.
+
+**Nothing is deleted.** Cancelling a booking changes its status, and courts are turned off instead of deleted. The booking history stays complete.
+
+**Tests use a real PostgreSQL.** The most important rules live in the database (the unique index and the row lock), and a mocked database would hide them. Tests run against Docker locally and a PostgreSQL service in CI. Each test creates its own court and players and deletes them at the end. `crearApp()` builds the Express app without opening a port, so Supertest can use it directly. The real-time "notifier" is passed into the app, so a test can swap in a fake one.
+
+**Inputs are checked at the edges.** Zod validates every request body and query string, and also the environment variables at startup: if one is missing, the API refuses to start and says which one.
+
+## Tests and CI
+
+- **API:** 50 tests with Vitest and Supertest: auth, booking rules (including two people booking the same slot), roles and permissions, and real-time events with real Socket.io clients.
+- **Web:** 21 tests with Vitest and Testing Library: the API client, date helpers, the time-slot grid and the real-time hook.
+- **CI:** GitHub Actions runs lint, type check, tests and build for both projects on every push. The API job starts its own PostgreSQL.
+
+## Known limitations
+
+- Everyone shares the "Jugador demo" account, and a player can have only 2 active bookings, so the demo account can fill up. Resetting the demo data every night would fix it.
+- There are no refresh tokens: the session lasts 1 day, and then you sign in again.
+- "Mis reservas" is not live. It refreshes when you come back to the tab. Pushing changes to it would need a private room per user, with the session checked on the socket.
+- The login rate limit and the Socket.io rooms live in the memory of one API process. Running several copies of the API would need a shared store, such as Redis, for both.
 
 ## Scripts
 
