@@ -1,193 +1,193 @@
-# Volea · Real-time Court Booking
+# Volea · Reserva de canchas en tiempo real
 
-> **Work in progress.**
+> **En construcción.**
 
-A booking app for a fictional padel club. Players pick a court and a day, see the free time slots and book one. When someone books, the slot turns busy on everyone else's screen at once, without reloading the page. Admins see and manage all bookings.
+Una app de reservas para un club de pádel ficticio. Los jugadores eligen una cancha y un día, ven los horarios libres y reservan uno. Cuando alguien reserva, el horario aparece ocupado al instante en la pantalla de todos los demás, sin recargar la página. Los administradores ven y manejan todas las reservas.
 
-![Two players on the same court: the second screen updates on its own](docs/demo.gif)
+![Dos jugadores en la misma cancha: la segunda pantalla se actualiza sola](docs/demo.gif)
 
-*Two players look at the same court. Player 1 books 17:00 and it turns busy on Player 2's screen at once. Then both pick 18:00, Player 1 books it first, and Player 2 is told right away.*
+*Dos jugadores miran la misma cancha. El jugador 1 reserva las 17:00 y en la pantalla del jugador 2 aparece ocupada al instante. Después los dos eligen las 18:00, el jugador 1 la reserva primero y al jugador 2 se le avisa en el momento.*
 
-## Tech stack
+## Tecnologías
 
-- **API:** Node.js, Express 5 and TypeScript
-- **Database:** PostgreSQL with Prisma ORM (migrations and seed data)
-- **Auth:** JWT in an httpOnly cookie, passwords hashed with bcrypt
-- **Security:** helmet, CORS and rate limiting on login
-- **Validation:** Zod
-- **Real time:** Socket.io
-- **Dates and time zones:** Luxon
-- **Web:** Next.js 16 (App Router), React 19, Tailwind CSS 4 and TanStack Query
-- **Tests:** Vitest, Supertest and Testing Library
-- **Tooling:** Docker Compose for the local database, GitHub Actions for CI
+- **API:** Node.js, Express 5 y TypeScript
+- **Base de datos:** PostgreSQL con Prisma ORM (migraciones y datos de ejemplo)
+- **Sesión:** JWT en una cookie httpOnly, contraseñas guardadas con bcrypt
+- **Seguridad:** helmet, CORS y límite de intentos en el login
+- **Validación:** Zod
+- **Tiempo real:** Socket.io
+- **Fechas y zonas horarias:** Luxon
+- **Web:** Next.js 16 (App Router), React 19, Tailwind CSS 4 y TanStack Query
+- **Tests:** Vitest, Supertest y Testing Library
+- **Herramientas:** Docker Compose para la base de datos local y GitHub Actions para el CI
 
-## Architecture
+## Arquitectura
 
 ```mermaid
 flowchart LR
-    browser["Browser<br/>React + TanStack Query"]
-    next["Next.js server<br/>rewrites /api"]
-    subgraph apiServer["API server · Node.js"]
-        express["Express<br/>REST API"]
+    browser["Navegador<br/>React + TanStack Query"]
+    next["Servidor de Next.js<br/>rewrites de /api"]
+    subgraph apiServer["Servidor de la API · Node.js"]
+        express["Express<br/>API REST"]
         socket["Socket.io"]
     end
     db[("PostgreSQL")]
 
-    browser -->|"HTTP /api/... with the session cookie"| next
+    browser -->|"HTTP /api/... con la cookie de sesión"| next
     next -->|proxy| express
     express -->|Prisma| db
-    express -->|"booking created or cancelled"| socket
-    socket -.->|"live events · WebSocket"| browser
+    express -->|"reserva creada o cancelada"| socket
+    socket -.->|"eventos en vivo · WebSocket"| browser
 ```
 
-1. The page calls `/api/...` on its own site, and the Next.js server forwards the request to Express.
-2. Express checks the session and validates the input with Zod. It then applies the booking rules and saves to PostgreSQL through Prisma.
-3. When a booking is created or cancelled, Express tells Socket.io, which notifies the browsers watching that court.
-4. Those browsers fetch the time slots again through the REST API.
+1. La página llama a `/api/...` en su mismo sitio, y el servidor de Next.js le pasa la petición a Express.
+2. Express revisa la sesión y valida los datos con Zod. Después aplica las reglas de las reservas y guarda en PostgreSQL con Prisma.
+3. Cuando se crea o se cancela una reserva, Express le avisa a Socket.io, que avisa a los navegadores que están mirando esa cancha.
+4. Esos navegadores vuelven a pedir los horarios a la API REST.
 
-## Project structure
+## Estructura del proyecto
 
 ```
 agenda-reservas/
-├── api/                  ← REST API (Express + Prisma)
-│   ├── prisma/           ← database schema, migrations and seed data
+├── api/                  ← API REST (Express + Prisma)
+│   ├── prisma/           ← esquema de la base de datos, migraciones y datos de ejemplo
 │   ├── src/
 │   └── tests/
 ├── web/                  ← frontend (Next.js)
-│   ├── app/              ← pages: login, registro, reservar, mis-reservas, admin
+│   ├── app/              ← páginas: login, registro, reservar, mis-reservas, admin
 │   ├── components/
-│   ├── lib/              ← API client, data hooks, real-time hook and date helpers
+│   ├── lib/              ← cliente de la API, hooks de datos, hook de tiempo real y funciones de fechas
 │   └── tests/
-├── docs/                 ← the demo GIF
-└── docker-compose.yml    ← local PostgreSQL
+├── docs/                 ← el GIF del demo
+└── docker-compose.yml    ← PostgreSQL local
 ```
 
-## Run it locally
+## Cómo correrlo en local
 
-You need Node.js 24 (see `.nvmrc`) and Docker.
+Necesitas Node.js 24 (ver `.nvmrc`) y Docker.
 
 ```bash
-# 1. Start PostgreSQL
+# 1. Levanta PostgreSQL
 docker compose up -d
 
-# 2. Set up the API
+# 2. Prepara la API
 cd api
-cp .env.example .env   # then set JWT_SECRET to a long random value
+cp .env.example .env   # después pon en JWT_SECRET un valor largo y al azar
 npm install
-npm run db:migrar    # creates the tables
-npm run db:seed      # adds demo users and courts
+npm run db:migrar    # crea las tablas
+npm run db:seed      # agrega usuarios y canchas de ejemplo
 
-# 3. Start the API
+# 3. Levanta la API
 npm run dev
 
-# 4. In another terminal, start the web app
+# 4. En otra terminal, levanta la web
 cd web
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and use the **Jugador demo** (player) or **Admin demo** buttons (the UI is in Spanish). The API runs on [http://localhost:4000](http://localhost:4000).
+Abre [http://localhost:3000](http://localhost:3000) y usa los botones **Jugador demo** o **Admin demo**. La API corre en [http://localhost:4000](http://localhost:4000).
 
-The web app forwards every `/api/...` request to the API (Next.js rewrites). To the browser, the API lives on the same site as the page, so the session cookie is first-party and there is no CORS to deal with. The real-time connection is the exception: rewrites can't carry a long-lived connection, so Socket.io connects straight to the API. Set `NEXT_PUBLIC_API_URL` in `web/.env.local` if the API runs somewhere else.
+La web le pasa a la API cada petición a `/api/...` (rewrites de Next.js). Para el navegador, la API está en el mismo sitio que la página, así que la cookie de sesión es propia (first-party) y no hay que lidiar con CORS. La conexión en tiempo real es la excepción: los rewrites no pueden mantener una conexión abierta, así que Socket.io se conecta directo a la API. Si la API corre en otro lugar, pon `NEXT_PUBLIC_API_URL` en `web/.env.local`.
 
-### Demo users
+### Usuarios de prueba
 
-| Role | Email | Password |
+| Rol | Email | Contraseña |
 |---|---|---|
 | Admin | `admin@example.com` | `demo1234` |
-| Player | `cliente@example.com` | `demo1234` |
+| Jugador | `cliente@example.com` | `demo1234` |
 
-## API endpoints
+## Rutas de la API
 
-| Method | Route | Access | What it does |
+| Método | Ruta | Acceso | Qué hace |
 |---|---|---|---|
-| GET | `/api/salud` | public | Health check |
-| POST | `/api/auth/registro` | public | Creates a player account and signs in |
-| POST | `/api/auth/login` | public | Signs in (sets the session cookie) |
-| POST | `/api/auth/logout` | public | Signs out (clears the session cookie) |
-| GET | `/api/auth/yo` | signed in | Returns the current user |
-| GET | `/api/recursos` | signed in | Lists the courts |
-| GET | `/api/recursos/:id/disponibilidad?fecha=YYYY-MM-DD` | signed in | Time slots of a day: free, taken, mine or past |
-| POST | `/api/reservas` | player | Books a slot (`201`, or `409` if it is already taken) |
-| GET | `/api/reservas/mias` | player | My upcoming bookings |
-| DELETE | `/api/reservas/:id` | owner or admin | Cancels a booking |
-| GET | `/api/admin/reservas?fecha=YYYY-MM-DD` | admin | All bookings of a day, any date |
-| GET | `/api/admin/recursos` | admin | All courts, including inactive ones |
-| POST | `/api/admin/recursos` | admin | Creates a court |
-| PATCH | `/api/admin/recursos/:id` | admin | Renames a court or turns it on/off |
+| GET | `/api/salud` | público | Revisa que la API esté funcionando |
+| POST | `/api/auth/registro` | público | Crea una cuenta de jugador e inicia sesión |
+| POST | `/api/auth/login` | público | Inicia sesión (deja la cookie de sesión) |
+| POST | `/api/auth/logout` | público | Cierra la sesión (borra la cookie de sesión) |
+| GET | `/api/auth/yo` | con sesión | Devuelve el usuario actual |
+| GET | `/api/recursos` | con sesión | Lista las canchas |
+| GET | `/api/recursos/:id/disponibilidad?fecha=YYYY-MM-DD` | con sesión | Los horarios de un día: libre, ocupado, mío o pasado |
+| POST | `/api/reservas` | jugador | Reserva un horario (`201`, o `409` si ya está ocupado) |
+| GET | `/api/reservas/mias` | jugador | Mis próximas reservas |
+| DELETE | `/api/reservas/:id` | dueño o admin | Cancela una reserva |
+| GET | `/api/admin/reservas?fecha=YYYY-MM-DD` | admin | Todas las reservas de un día, de cualquier fecha |
+| GET | `/api/admin/recursos` | admin | Todas las canchas, también las desactivadas |
+| POST | `/api/admin/recursos` | admin | Crea una cancha |
+| PATCH | `/api/admin/recursos/:id` | admin | Cambia el nombre de una cancha o la activa y desactiva |
 
-Without a session the API answers `401`; with a session but the wrong role, `403`. Courts are never deleted, only turned off, so the booking history stays complete.
+Sin sesión, la API responde `401`; con sesión pero sin el rol correcto, `403`. Las canchas nunca se borran, solo se desactivan, así el historial de reservas queda completo.
 
-Errors always come back as JSON, for example `{ "error": "Email o contraseña incorrectos" }`. Validation errors (400) also include `detalles`, with the problems for each field.
+Los errores siempre vuelven en JSON, por ejemplo `{ "error": "Email o contraseña incorrectos" }`. Los errores de validación (400) además traen `detalles`, con los problemas de cada campo.
 
-## Booking rules
+## Reglas de las reservas
 
-- Slots last 1 hour and start on the hour, from 08:00 to 22:00 (club time, `America/Santiago`).
-- You can book from today up to 6 days ahead, but never in the past.
-- A court can't be booked twice for the same slot. If two people try at the same moment, only one gets it and the other gets a `409`.
-- Each player can have at most 2 active bookings.
-- Only the owner or an admin can cancel a booking, and only before it starts. Cancelling keeps the record and frees the slot.
+- Los horarios duran 1 hora y empiezan en punto, de 08:00 a 22:00 (hora del club, `America/Santiago`).
+- Se puede reservar desde hoy hasta 6 días más adelante, pero nunca en el pasado.
+- Una cancha no se puede reservar dos veces en el mismo horario. Si dos personas lo intentan al mismo tiempo, solo una lo consigue y la otra recibe un `409`.
+- Cada jugador puede tener como máximo 2 reservas activas.
+- Solo el dueño o un admin pueden cancelar una reserva, y solo antes de que empiece. Al cancelar, el registro se mantiene y el horario queda libre.
 
-## Real-time updates
+## Tiempo real
 
-The API and Socket.io share one HTTP server. When a booking is created or cancelled, the API tells every browser that is looking at that court, and each one fetches its time slots again. Nobody has to reload the page.
+La API y Socket.io comparten un mismo servidor HTTP. Cuando se crea o se cancela una reserva, la API avisa a todos los navegadores que están mirando esa cancha, y cada uno vuelve a pedir sus horarios. Nadie tiene que recargar la página.
 
-- Each court has its own Socket.io **room** (`recurso:<id>`). The page says which courts it is watching with `canchas:seguir`: a player follows the court on screen, and the admin panel follows all of them.
-- The server sends `reserva:creada` and `reserva:cancelada` with `{ recursoId, inicio }`. That is all: no names or emails travel in real time, so the socket doesn't need the session cookie.
-- On the page, an event just marks that court's data as stale and TanStack Query fetches it again through the normal API. The REST API stays the only source of truth.
-- If the connection drops, Socket.io reconnects on its own. The page then joins its rooms again and refreshes everything, in case it missed an event. A small "En vivo" badge shows whether the connection is up.
+- Cada cancha tiene su propia **sala** de Socket.io (`recurso:<id>`). La página avisa qué canchas está mirando con `canchas:seguir`: un jugador sigue la cancha que tiene en pantalla, y el panel de admin las sigue todas.
+- El servidor envía `reserva:creada` y `reserva:cancelada` con `{ recursoId, inicio }`. Nada más: en tiempo real no viajan nombres ni emails, así que el socket no necesita la cookie de sesión.
+- En la página, un evento solo marca como desactualizados los datos de esa cancha, y TanStack Query los vuelve a pedir por la API normal. La API REST sigue siendo la única fuente de verdad.
+- Si se corta la conexión, Socket.io se reconecta solo. Después la página vuelve a entrar a sus salas y actualiza todo, por si se perdió algún evento. Un pequeño indicador "En vivo" muestra si la conexión está activa.
 
-## Technical decisions
+## Decisiones técnicas
 
-**The database blocks double bookings.** A partial unique index on `(court, start)` only counts confirmed bookings. The API doesn't ask "is this slot free?" before saving: two requests could both get a "yes" at the same moment. It just tries to insert, and the database lets only one through. The other one gets a `409`. Cancelled bookings don't count, so cancelling frees the slot.
+**La base de datos bloquea las reservas dobles.** Un índice único parcial sobre `(recursoId, inicio)` (la cancha y la hora de inicio) solo cuenta las reservas confirmadas. La API no pregunta "¿está libre este horario?" antes de guardar: dos peticiones podrían recibir un "sí" al mismo tiempo. Simplemente intenta guardar, y la base de datos deja pasar solo una. La otra recibe un `409`. Las reservas canceladas no cuentan, así que cancelar libera el horario.
 
-**The 2-booking limit holds under concurrency.** Counting a player's active bookings and creating the new one happen in one transaction that locks the player's row (`SELECT ... FOR UPDATE`). If the same player sends several requests at once, they wait in line instead of all passing the check. A test sends parallel requests, and it fails if the lock is removed.
+**El límite de 2 reservas se cumple aunque lleguen peticiones al mismo tiempo.** Contar las reservas activas del jugador y crear la nueva pasan en una sola transacción que bloquea la fila del jugador (`SELECT ... FOR UPDATE`). Si el mismo jugador envía varias peticiones a la vez, esperan en fila en vez de pasar todas la revisión. Un test envía peticiones en paralelo, y falla si se quita el bloqueo.
 
-**The session lives in an httpOnly cookie, on the same site as the page.** The JWT (HS256, valid for 1 day) goes in an `httpOnly`, `SameSite=Lax` cookie, so page scripts can't read it. The web app reaches the API through Next.js rewrites, so the cookie is first-party even if the API is hosted on another domain. That matters because Safari blocks third-party cookies. It also means the REST API needs no CORS.
+**La sesión va en una cookie httpOnly, en el mismo sitio que la página.** El JWT (HS256, válido por 1 día) va en una cookie `httpOnly` y `SameSite=Lax`, así los scripts de la página no lo pueden leer. La web llega a la API por los rewrites de Next.js, así que la cookie es propia del sitio aunque la API esté en otro dominio. Eso importa porque Safari bloquea las cookies de terceros. También significa que la API REST no necesita CORS.
 
-**401 and 403 mean different things.** `requiereSesion` answers "who are you?" (`401`), and `soloRoles` answers "are you allowed?" (`403`). The role is read from the token, without a database query. The trade-off: if an admin changes someone's role, it takes effect when their token expires.
+**401 y 403 significan cosas distintas.** `requiereSesion` responde "¿quién eres?" (`401`), y `soloRoles` responde "¿tienes permiso?" (`403`). El rol se lee del token, sin consultar la base de datos. La contra: si un admin cambia el rol de alguien, el cambio se aplica cuando vence su token.
 
-**Times are stored in UTC and shown in club time.** Days and slots are calculated in `America/Santiago` with Luxon. The server also decides what "today" is (`GET /api/horario`), so a wrong clock or time zone on the visitor's device can't change the booking rules.
+**Las horas se guardan en UTC y se muestran en la hora del club.** Los días y los horarios se calculan en `America/Santiago` con Luxon. El servidor también decide qué día es "hoy" (`GET /api/horario`), así un reloj o una zona horaria mal configurados en el dispositivo del visitante no pueden cambiar las reglas de las reservas.
 
-**Real-time events are only a signal.** An event says which court and slot changed, and nothing else: no names, no emails, so the socket needs no session. The page marks that data as stale and TanStack Query fetches it again from the REST API, which stays the single source of truth. There is no second copy of the state to keep in sync, and a missed event is fixed by refetching everything on reconnect.
+**Los eventos en tiempo real son solo una señal.** Un evento dice qué cancha y qué horario cambiaron, y nada más: ni nombres ni emails, así que el socket no necesita sesión. La página marca esos datos como desactualizados y TanStack Query los vuelve a pedir a la API REST, que sigue siendo la única fuente de verdad. No hay una segunda copia del estado que mantener sincronizada, y si se pierde un evento, se arregla volviendo a pedir todo al reconectarse.
 
-**Nothing is deleted.** Cancelling a booking changes its status, and courts are turned off instead of deleted. The booking history stays complete.
+**No se borra nada.** Cancelar una reserva cambia su estado, y las canchas se desactivan en vez de borrarse. El historial de reservas queda completo.
 
-**Tests use a real PostgreSQL.** The most important rules live in the database (the unique index and the row lock), and a mocked database would hide them. Tests run against Docker locally and a PostgreSQL service in CI. Each test creates its own court and players and deletes them at the end. `crearApp()` builds the Express app without opening a port, so Supertest can use it directly. The real-time "notifier" is passed into the app, so a test can swap in a fake one.
+**Los tests usan un PostgreSQL de verdad.** Las reglas más importantes viven en la base de datos (el índice único y el bloqueo de fila), y una base de datos simulada las escondería. Los tests corren contra Docker en local y contra un servicio de PostgreSQL en el CI. Cada test crea su propia cancha y sus jugadores y los borra al final. `crearApp()` arma la app de Express sin abrir un puerto, así Supertest la puede usar directo. El "notificador" de tiempo real se le pasa a la app, así un test lo puede cambiar por uno falso.
 
-**Inputs are checked at the edges.** Zod validates every request body and query string, and also the environment variables at startup: if one is missing, the API refuses to start and says which one.
+**Los datos se revisan en la entrada.** Zod valida el cuerpo y los parámetros de cada petición, y también las variables de entorno al partir: si falta una, la API no parte y dice cuál falta.
 
-## Tests and CI
+## Tests y CI
 
-- **API:** 50 tests with Vitest and Supertest: auth, booking rules (including two people booking the same slot), roles and permissions, and real-time events with real Socket.io clients.
-- **Web:** 21 tests with Vitest and Testing Library: the API client, date helpers, the time-slot grid and the real-time hook.
-- **CI:** GitHub Actions runs lint, type check, tests and build for both projects on every push. The API job starts its own PostgreSQL.
+- **API:** 50 tests con Vitest y Supertest: sesión, reglas de las reservas (incluido dos personas reservando el mismo horario), roles y permisos, y eventos en tiempo real con clientes de Socket.io de verdad.
+- **Web:** 21 tests con Vitest y Testing Library: el cliente de la API, las funciones de fechas, la grilla de horarios y el hook de tiempo real.
+- **CI:** GitHub Actions corre lint, tipos, tests y build de los dos proyectos en cada push. El trabajo de la API levanta su propio PostgreSQL.
 
-## Known limitations
+## Limitaciones conocidas
 
-- Everyone shares the "Jugador demo" account, and a player can have only 2 active bookings, so the demo account can fill up. Resetting the demo data every night would fix it.
-- There are no refresh tokens: the session lasts 1 day, and then you sign in again.
-- "Mis reservas" is not live. It refreshes when you come back to the tab. Pushing changes to it would need a private room per user, with the session checked on the socket.
-- The login rate limit and the Socket.io rooms live in the memory of one API process. Running several copies of the API would need a shared store, such as Redis, for both.
+- Todos comparten la cuenta "Jugador demo", y un jugador puede tener solo 2 reservas activas, así que la cuenta demo se puede llenar. Se arreglaría reiniciando los datos de prueba cada noche.
+- No hay refresh tokens: la sesión dura 1 día y después hay que volver a iniciar sesión.
+- "Mis reservas" no se actualiza en vivo. Se actualiza al volver a la pestaña. Para enviarle cambios haría falta una sala privada por usuario, revisando la sesión en el socket.
+- El límite de intentos del login y las salas de Socket.io viven en la memoria de un solo proceso de la API. Para correr varias copias de la API haría falta un almacenamiento compartido, como Redis, para las dos cosas.
 
-## Scripts
+## Comandos
 
-Inside `api/`:
+Dentro de `api/`:
 
-| Command | What it does |
+| Comando | Qué hace |
 |---|---|
-| `npm run dev` | Starts the API and restarts it on every change |
-| `npm run build` | Compiles TypeScript to `dist/` |
-| `npm start` | Runs the compiled API |
-| `npm run lint` | Checks the code with ESLint |
-| `npm run typecheck` | Checks the TypeScript types |
-| `npm test` | Runs the tests |
-| `npm run db:migrar` | Applies the migrations (and creates new ones after a schema change) |
-| `npm run db:seed` | Loads the demo data |
-| `npm run db:reiniciar` | Deletes everything and rebuilds the database from scratch |
+| `npm run dev` | Levanta la API y la reinicia con cada cambio |
+| `npm run build` | Compila TypeScript a `dist/` |
+| `npm start` | Corre la API compilada |
+| `npm run lint` | Revisa el código con ESLint |
+| `npm run typecheck` | Revisa los tipos de TypeScript |
+| `npm test` | Corre los tests |
+| `npm run db:migrar` | Aplica las migraciones (y crea nuevas después de cambiar el esquema) |
+| `npm run db:seed` | Carga los datos de prueba |
+| `npm run db:reiniciar` | Borra todo y vuelve a armar la base de datos desde cero |
 
-Inside `web/`: `npm run dev`, `npm run build`, `npm start`, `npm run lint`, `npm run typecheck` and `npm test` do the same for the web app.
+Dentro de `web/`: `npm run dev`, `npm run build`, `npm start`, `npm run lint`, `npm run typecheck` y `npm test` hacen lo mismo para la web.
 
-## License
+## Licencia
 
 [MIT](LICENSE)
