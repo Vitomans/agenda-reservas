@@ -1,5 +1,7 @@
 # Volea · Reserva de canchas en tiempo real
 
+[![Estado del CI](https://github.com/Vitomans/agenda-reservas/actions/workflows/ci.yml/badge.svg)](https://github.com/Vitomans/agenda-reservas/actions/workflows/ci.yml)
+
 Una app de reservas para un club de pádel ficticio. Los jugadores eligen una cancha y un día, ven los horarios libres y reservan uno. Cuando alguien reserva, el horario aparece ocupado al instante en la pantalla de todos los demás, sin recargar la página. Los administradores ven y manejan todas las reservas.
 
 **Demo en vivo: [volea-reservas.vercel.app](https://volea-reservas.vercel.app)**. Entra con **Jugador demo** (una cuenta nueva solo para ti) o **Admin demo**. Para ver el tiempo real, ábrela en dos pantallas a la vez, por ejemplo en el celular y en el computador.
