@@ -1,8 +1,8 @@
 # Volea · Reserva de canchas en tiempo real
 
-> **En construcción.**
-
 Una app de reservas para un club de pádel ficticio. Los jugadores eligen una cancha y un día, ven los horarios libres y reservan uno. Cuando alguien reserva, el horario aparece ocupado al instante en la pantalla de todos los demás, sin recargar la página. Los administradores ven y manejan todas las reservas.
+
+**Demo en vivo: [volea-reservas.vercel.app](https://volea-reservas.vercel.app)**. Entra con **Jugador demo** (una cuenta nueva solo para ti) o **Admin demo**. Para ver el tiempo real, ábrela en dos pantallas a la vez, por ejemplo en el celular y en el computador.
 
 ![Dos jugadores en la misma cancha: la segunda pantalla se actualiza sola](docs/demo.gif)
 
@@ -20,18 +20,19 @@ Una app de reservas para un club de pádel ficticio. Los jugadores eligen una ca
 - **Web:** Next.js 16 (App Router), React 19, Tailwind CSS 4 y TanStack Query
 - **Tests:** Vitest, Supertest y Testing Library
 - **Herramientas:** Docker Compose para la base de datos local y GitHub Actions para el CI
+- **Publicación:** Vercel (web), Render (API), Neon (PostgreSQL) y UptimeRobot, todo en planes gratis
 
 ## Arquitectura
 
 ```mermaid
 flowchart LR
     browser["Navegador<br/>React + TanStack Query"]
-    next["Servidor de Next.js<br/>rewrites de /api"]
-    subgraph apiServer["Servidor de la API · Node.js"]
+    next["Servidor de Next.js · Vercel<br/>rewrites de /api"]
+    subgraph apiServer["Servidor de la API · Node.js en Render"]
         express["Express<br/>API REST"]
         socket["Socket.io"]
     end
-    db[("PostgreSQL")]
+    db[("PostgreSQL · Neon")]
 
     browser -->|"HTTP /api/... con la cookie de sesión"| next
     next -->|proxy| express
@@ -59,7 +60,8 @@ agenda-reservas/
 │   ├── lib/              ← cliente de la API, hooks de datos, hook de tiempo real y funciones de fechas
 │   └── tests/
 ├── docs/                 ← el GIF del demo
-└── docker-compose.yml    ← PostgreSQL local
+├── docker-compose.yml    ← PostgreSQL local
+└── render.yaml           ← configuración de la API publicada en Render
 ```
 
 ## Cómo correrlo en local
@@ -97,6 +99,8 @@ La web le pasa a la API cada petición a `/api/...` (rewrites de Next.js). Para 
 | Admin | `admin@example.com` | `demo1234` |
 | Jugador | `cliente@example.com` | `demo1234` |
 
+El botón **Jugador demo** no usa la cuenta de jugador de la tabla: crea un jugador invitado nuevo para cada visitante (ver "Decisiones técnicas"). La cuenta de la tabla sirve para entrar escribiendo el email y la contraseña.
+
 ## Rutas de la API
 
 | Método | Ruta | Acceso | Qué hace |
@@ -104,6 +108,7 @@ La web le pasa a la API cada petición a `/api/...` (rewrites de Next.js). Para 
 | GET | `/api/salud` | público | Revisa que la API esté funcionando |
 | POST | `/api/auth/registro` | público | Crea una cuenta de jugador e inicia sesión |
 | POST | `/api/auth/login` | público | Inicia sesión (deja la cookie de sesión) |
+| POST | `/api/auth/invitado` | público | Crea un jugador invitado nuevo e inicia sesión (el botón "Jugador demo") |
 | POST | `/api/auth/logout` | público | Cierra la sesión (borra la cookie de sesión) |
 | GET | `/api/auth/yo` | con sesión | Devuelve el usuario actual |
 | GET | `/api/recursos` | con sesión | Lista las canchas |
@@ -137,6 +142,24 @@ La API y Socket.io comparten un mismo servidor HTTP. Cuando se crea o se cancela
 - En la página, un evento solo marca como desactualizados los datos de esa cancha, y TanStack Query los vuelve a pedir por la API normal. La API REST sigue siendo la única fuente de verdad.
 - Si se corta la conexión, Socket.io se reconecta solo. Después la página vuelve a entrar a sus salas y actualiza todo, por si se perdió algún evento. Un pequeño indicador "En vivo" muestra si la conexión está activa.
 
+## Cómo está publicada
+
+Todo está en planes gratis:
+
+| Parte | Dónde | Por qué ahí |
+|---|---|---|
+| Web (Next.js) | **Vercel** | Publica Next.js sin configurar nada, y cada push a `main` se publica solo. |
+| API (Express + Socket.io) | **Render** | Socket.io necesita un servidor siempre encendido que mantenga las conexiones abiertas. Vercel corre funciones que se encienden, responden y se apagan, así que no sirve para la API. |
+| Base de datos | **Neon** (PostgreSQL 17) | Se duerme sin uso, pero despierta sola en cuanto llega una consulta. Supabase pausa la base de datos después de 7 días sin actividad, y la PostgreSQL gratis de Render se borra a los 30 días. |
+| Despertador | **UptimeRobot** | Render apaga la API después de 15 minutos sin visitas. UptimeRobot visita `/api/salud` cada 5 minutos para que no se duerma, y avisa por correo si la demo se cae. |
+
+- **La configuración de Render está en el repo** (`render.yaml`), no solo en el panel de Render: cómo compilar, cómo arrancar, la región y las variables que hacen falta. Los secretos no van en el archivo. `DATABASE_URL` se escribe a mano en Render, y Render genera `JWT_SECRET`.
+- **Las migraciones y el seed corren al final del build**, porque el plan gratis de Render no tiene "pre-deploy command". El seed se puede correr muchas veces sin duplicar nada (usa `upsert`).
+- **Render publica solo si el CI pasó** (`autoDeployTrigger: checksPass`).
+- **Las cuentas cuadran:** Render da 750 horas gratis al mes, y un mes tiene como máximo 744, así que alcanza para tener la API encendida siempre. `/api/salud` no consulta la base de datos, así que las visitas del despertador no despiertan a Neon y no gastan sus horas gratis de cómputo.
+- **La API y la base de datos están en la misma zona** (Virginia, Estados Unidos), para que cada consulta tarde lo menos posible.
+- Si el despertador fallara, la primera visita esperaría hasta un minuto a que la API despierte. Si la carga pasa de 5 segundos, la página explica por qué está tardando.
+
 ## Decisiones técnicas
 
 **La base de datos bloquea las reservas dobles.** Un índice único parcial sobre `(recursoId, inicio)` (la cancha y la hora de inicio) solo cuenta las reservas confirmadas. La API no pregunta "¿está libre este horario?" antes de guardar: dos peticiones podrían recibir un "sí" al mismo tiempo. Simplemente intenta guardar, y la base de datos deja pasar solo una. La otra recibe un `409`. Las reservas canceladas no cuentan, así que cancelar libera el horario.
@@ -157,15 +180,21 @@ La API y Socket.io comparten un mismo servidor HTTP. Cuando se crea o se cancela
 
 **Los datos se revisan en la entrada.** Zod valida el cuerpo y los parámetros de cada petición, y también las variables de entorno al partir: si falta una, la API no parte y dice cuál falta.
 
+**Cada visitante recibe su propio jugador demo.** Si todos compartieran una cuenta, cada visitante vería las reservas de los demás, y como un jugador puede tener solo 2 reservas activas, la cuenta se llenaría. El botón "Jugador demo" llama a `POST /api/auth/invitado`, que crea un jugador nuevo ("Invitado 4F2A") con la sesión iniciada. Para que la demo no se llene de datos viejos, cada vez que se crea un invitado se borran los que tienen más de un día, con sus reservas, sin necesidad de una tarea programada. Un invitado dura lo mismo que una sesión.
+
+**La API sabe cuántos intermediarios hay delante.** Publicada, cada pedido pasa por Vercel, Cloudflare, la red interna de Render y un proxy local antes de llegar a Express, y cada uno anota una IP en `X-Forwarded-For`. Sin decirle a Express cuántos son (`trust proxy`), todos los visitantes parecerían venir de la misma IP y compartirían el límite de intentos del login. El número (`PROXIES_CONFIABLES=4`) se midió con la demo publicada, no se adivinó. Un test comprueba que, detrás de un proxy, cada visitante tiene su propio contador.
+
 ## Tests y CI
 
-- **API:** 50 tests con Vitest y Supertest: sesión, reglas de las reservas (incluido dos personas reservando el mismo horario), roles y permisos, y eventos en tiempo real con clientes de Socket.io de verdad.
-- **Web:** 21 tests con Vitest y Testing Library: el cliente de la API, las funciones de fechas, la grilla de horarios y el hook de tiempo real.
+- **API:** 55 tests con Vitest y Supertest: sesión, jugadores invitados, límite de intentos detrás de un proxy, reglas de las reservas (incluido dos personas reservando el mismo horario), roles y permisos, y eventos en tiempo real con clientes de Socket.io de verdad.
+- **Web:** 25 tests con Vitest y Testing Library: el cliente de la API, las funciones de fechas, la grilla de horarios, el formulario de login, el aviso de carga lenta y el hook de tiempo real.
 - **CI:** GitHub Actions corre lint, tipos, tests y build de los dos proyectos en cada push. El trabajo de la API levanta su propio PostgreSQL.
 
 ## Limitaciones conocidas
 
-- Todos comparten la cuenta "Jugador demo", y un jugador puede tener solo 2 reservas activas, así que la cuenta demo se puede llenar. Se arreglaría reiniciando los datos de prueba cada noche.
+- El límite de intentos del login se puede saltar con conocimientos técnicos. Vercel deja pasar una cabecera `X-Forwarded-For` escrita a mano, y la API publicada también se puede llamar directo en Render, sin pasar por Vercel. En los dos casos, alguien podría inventarse una IP distinta en cada intento. Para cerrarlo, la API tendría que aceptar solo pedidos que vengan de Vercel, por ejemplo con una clave compartida en una cabecera.
+- Los jugadores invitados y sus reservas se borran al día siguiente. El "Admin demo" sí es una cuenta compartida, así que cualquier visitante puede cancelar reservas desde el panel de admin.
+- La API usa planes gratis: si el despertador fallara, la primera visita tardaría hasta un minuto.
 - No hay refresh tokens: la sesión dura 1 día y después hay que volver a iniciar sesión.
 - "Mis reservas" no se actualiza en vivo. Se actualiza al volver a la pestaña. Para enviarle cambios haría falta una sala privada por usuario, revisando la sesión en el socket.
 - El límite de intentos del login y las salas de Socket.io viven en la memoria de un solo proceso de la API. Para correr varias copias de la API haría falta un almacenamiento compartido, como Redis, para las dos cosas.
