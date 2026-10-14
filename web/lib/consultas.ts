@@ -99,6 +99,16 @@ export function useIniciarSesion() {
   });
 }
 
+// Crea un jugador nuevo solo para este visitante (el botón "Jugador demo")
+export function useEntrarComoInvitado() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => (await pedirApi<{ usuario: Usuario }>("/auth/invitado", { metodo: "POST" })).usuario,
+    onSuccess: (usuario) => queryClient.setQueryData(claves.sesion, usuario),
+  });
+}
+
 export function useRegistrarse() {
   const queryClient = useQueryClient();
 
