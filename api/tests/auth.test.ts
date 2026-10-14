@@ -2,7 +2,14 @@ import request from "supertest";
 import { afterAll, describe, expect, it } from "vitest";
 import { crearApp } from "../src/app.ts";
 import { db } from "../src/db.ts";
-import { borrarDatosDePrueba, cookieDeSesion, emailNuevo } from "./ayudantes.ts";
+import {
+  bloque,
+  borrarDatosDePrueba,
+  cookieDeSesion,
+  crearCanchaDePrueba,
+  emailNuevo,
+  entrarComoJugadorNuevo,
+} from "./ayudantes.ts";
 
 // Estos tests usan la base de datos de verdad (la de Docker en local y la del CI)
 // y los usuarios demo del seed.
@@ -135,6 +142,59 @@ describe("POST /api/auth/login", () => {
     }
 
     expect((await intentarDesde(app, "203.0.113.2")).status).toBe(429);
+  });
+});
+
+describe("POST /api/auth/invitado", () => {
+  it("crea un jugador invitado nuevo y deja la sesión iniciada", async () => {
+    const navegador = request.agent(crearApp());
+
+    const respuesta = await navegador.post("/api/auth/invitado");
+
+    expect(respuesta.status).toBe(201);
+    expect(respuesta.body.usuario).toEqual({
+      id: expect.any(String),
+      nombre: expect.stringMatching(/^Invitado [0-9A-F]{4}$/),
+      email: expect.stringMatching(/@invitados\.example\.com$/),
+      rol: "CLIENTE",
+    });
+    expect((await navegador.get("/api/auth/yo")).body.usuario.id).toBe(respuesta.body.usuario.id);
+  });
+
+  it("cada visitante recibe su propio jugador", async () => {
+    const app = crearApp();
+
+    const [primero, segundo] = await Promise.all([
+      request(app).post("/api/auth/invitado"),
+      request(app).post("/api/auth/invitado"),
+    ]);
+
+    expect(primero.body.usuario.id).not.toBe(segundo.body.usuario.id);
+  });
+
+  it("al crear uno nuevo, borra los invitados de más de un día con sus reservas", async () => {
+    const app = crearApp();
+    const haceDosDias = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+    // Un invitado viejo con una reserva
+    const viejo = (await request(app).post("/api/auth/invitado")).body.usuario;
+    const cancha = await crearCanchaDePrueba();
+    await db.reserva.create({
+      data: { recursoId: cancha.id, usuarioId: viejo.id, inicio: bloque(1, 10), fin: bloque(1, 11) },
+    });
+    await db.usuario.update({ where: { id: viejo.id }, data: { creadoEn: haceDosDias } });
+
+    // Un jugador registrado igual de antiguo, y un invitado reciente: ninguno de los dos se borra
+    const { usuario: registrado } = await entrarComoJugadorNuevo(app);
+    await db.usuario.update({ where: { id: registrado.id }, data: { creadoEn: haceDosDias } });
+    const reciente = (await request(app).post("/api/auth/invitado")).body.usuario;
+
+    await request(app).post("/api/auth/invitado");
+
+    expect(await db.usuario.findUnique({ where: { id: viejo.id } })).toBeNull();
+    expect(await db.reserva.count({ where: { usuarioId: viejo.id } })).toBe(0);
+    expect(await db.usuario.findUnique({ where: { id: registrado.id } })).not.toBeNull();
+    expect(await db.usuario.findUnique({ where: { id: reciente.id } })).not.toBeNull();
   });
 });
 

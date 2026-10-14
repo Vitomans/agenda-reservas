@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 import request from "supertest";
 import { db } from "../src/db.ts";
 import { ZONA_HORARIA } from "../src/servicios/horario.ts";
+import { DOMINIO_INVITADOS } from "../src/servicios/invitados.ts";
 
 // Herramientas que comparten los tests. Los tests usan la base de datos de verdad,
 // así que todo lo que crean lleva una marca para poder borrarlo al final.
@@ -62,12 +63,15 @@ export function dia(diasDesdeHoy: number) {
   return DateTime.now().setZone(ZONA_HORARIA).plus({ days: diasDesdeHoy }).toISODate()!;
 }
 
-// Borra lo que crearon los tests (primero las reservas, porque apuntan a usuarios y canchas)
+// Borra lo que crearon los tests (primero las reservas, porque apuntan a usuarios y canchas).
+// También borra los jugadores invitados: los tests nunca corren contra la base de datos publicada.
 export async function borrarDatosDePrueba() {
-  const deUsuarioDePrueba = { usuario: { email: { endsWith: DOMINIO_DE_PRUEBA } } };
+  const usuariosDePrueba = {
+    OR: [{ email: { endsWith: DOMINIO_DE_PRUEBA } }, { email: { endsWith: DOMINIO_INVITADOS } }],
+  };
   const deCanchaDePrueba = { recurso: { nombre: { startsWith: PREFIJO_CANCHA_DE_PRUEBA } } };
 
-  await db.reserva.deleteMany({ where: { OR: [deUsuarioDePrueba, deCanchaDePrueba] } });
-  await db.usuario.deleteMany({ where: { email: { endsWith: DOMINIO_DE_PRUEBA } } });
+  await db.reserva.deleteMany({ where: { OR: [{ usuario: usuariosDePrueba }, deCanchaDePrueba] } });
+  await db.usuario.deleteMany({ where: usuariosDePrueba });
   await db.recurso.deleteMany({ where: { nombre: { startsWith: PREFIJO_CANCHA_DE_PRUEBA } } });
 }

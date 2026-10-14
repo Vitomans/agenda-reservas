@@ -3,6 +3,7 @@ import { rateLimit } from "express-rate-limit";
 import { db, esErrorDePrisma } from "../db.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
 import { requiereSesion, usuarioDeSesion } from "../middlewares/sesion.ts";
+import { crearInvitado } from "../servicios/invitados.ts";
 import { compararPassword, hashearPassword } from "../servicios/passwords.ts";
 import { cerrarSesion, iniciarSesion } from "../servicios/sesion.ts";
 import { esquemaLogin, esquemaRegistro } from "../validacion/auth.ts";
@@ -60,6 +61,15 @@ export function crearRutasAuth() {
 
     iniciarSesion(res, usuario);
     res.json({ usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } });
+  });
+
+  // Entra como un jugador invitado nuevo (el botón "Jugador demo" de la página).
+  // Lleva el límite de intentos para que nadie llene la base de datos creando invitados.
+  rutas.post("/invitado", limiteDeIntentos, async (_req, res) => {
+    const usuario = await crearInvitado();
+
+    iniciarSesion(res, usuario);
+    res.status(201).json({ usuario });
   });
 
   // No pide sesión: así también sirve para limpiar una cookie vencida
