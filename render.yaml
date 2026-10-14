@@ -1,0 +1,35 @@
+# Configuración de la API publicada en Render (un "Blueprint").
+# Render lee este archivo al crear el servicio con "New > Blueprint" y lo vuelve a leer en cada push,
+# así la configuración queda escrita en el repo y no solo en el panel de Render.
+services:
+  - type: web
+    name: volea-api
+    runtime: node
+    plan: free
+    # La misma zona que la base de datos de Neon (AWS us-east-1, en Virginia), para que estén cerca
+    region: virginia
+    rootDir: api
+    # Con NODE_ENV=production, npm se salta las dependencias de desarrollo, pero para compilar hacen falta
+    # (TypeScript, la CLI de Prisma y tsx para el seed). El plan gratis no tiene "pre-deploy command",
+    # así que las migraciones y el seed van al final del build. El seed se puede correr varias veces.
+    buildCommand: npm ci --include=dev && npm run build && npx prisma migrate deploy && npx prisma db seed
+    startCommand: npm start
+    healthCheckPath: /api/salud
+    # Publica solo si el CI de GitHub pasó
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      # Los valores con "sync: false" se escriben a mano en Render al crear el servicio
+      - key: DATABASE_URL
+        sync: false
+      - key: WEB_URL
+        sync: false
+      # Render inventa una clave aleatoria de 256 bits. Nunca se escribe en ningún archivo.
+      - key: JWT_SECRET
+        generateValue: true
+      # Vercel (el puente de next.config.ts) y el balanceador de Render
+      - key: PROXIES_CONFIABLES
+        value: "2"
