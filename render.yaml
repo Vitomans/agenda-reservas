@@ -30,6 +30,7 @@ services:
       # Render inventa una clave aleatoria de 256 bits. Nunca se escribe en ningún archivo.
       - key: JWT_SECRET
         generateValue: true
-      # Vercel (el puente de next.config.ts) y el balanceador de Render
+      # Medido el 2026-10-14: entre el navegador y la API hay 4 intermediarios.
+      # Vercel (el puente de next.config.ts), Cloudflare, la red interna de Render y un proxy local.
       - key: PROXIES_CONFIABLES
-        value: "2"
+        value: "4"

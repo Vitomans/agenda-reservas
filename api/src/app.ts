@@ -36,12 +36,6 @@ export function crearApp({
     res.json({ estado: "ok" });
   });
 
-  // TEMPORAL: muestra qué IPs anotan los intermediarios de Render y Vercel, para elegir
-  // el valor de PROXIES_CONFIABLES. Se borra apenas se mida.
-  app.get("/api/diagnostico-ip", (req, res) => {
-    res.json({ ip: req.ip, xForwardedFor: req.headers["x-forwarded-for"] ?? null, socket: req.socket.remoteAddress });
-  });
-
   app.use("/api/auth", crearRutasAuth());
   app.use("/api/horario", crearRutasHorario());
   app.use("/api/recursos", crearRutasRecursos());
