@@ -109,6 +109,33 @@ describe("POST /api/auth/login", () => {
     expect(respuesta.status).toBe(429);
     expect(respuesta.body.error).toMatch(/Demasiados intentos/);
   });
+
+  // Así llegan los pedidos a la demo publicada: un intermediario anota la IP del visitante
+  // en X-Forwarded-For. En los tests, la "IP" de todos los pedidos es la del mismo computador.
+  const intentarDesde = (app: ReturnType<typeof crearApp>, ip: string) =>
+    request(app).post("/api/auth/login").set("X-Forwarded-For", ip).send({ email: emailNuevo(), password: "x" });
+
+  it("detrás de un proxy, cuenta los intentos de cada visitante por separado", async () => {
+    const app = crearApp({ proxiesConfiables: 1 });
+
+    for (let i = 0; i < 20; i++) {
+      expect((await intentarDesde(app, "203.0.113.1")).status).toBe(401);
+    }
+
+    expect((await intentarDesde(app, "203.0.113.1")).status).toBe(429);
+    // Otra persona que llega por el mismo proxy todavía puede intentar
+    expect((await intentarDesde(app, "203.0.113.2")).status).toBe(401);
+  });
+
+  it("sin proxy, escribir X-Forwarded-For a mano no sirve para saltarse el límite", async () => {
+    const app = crearApp({ proxiesConfiables: 0 });
+
+    for (let i = 0; i < 20; i++) {
+      expect((await intentarDesde(app, "203.0.113.1")).status).toBe(401);
+    }
+
+    expect((await intentarDesde(app, "203.0.113.2")).status).toBe(429);
+  });
 });
 
 describe("GET /api/auth/yo", () => {
