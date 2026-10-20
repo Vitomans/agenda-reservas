@@ -98,3 +98,73 @@ jobs:
 
       - name: Compilar (build)
         run: npm run build
+
+  e2e:
+    name: E2E
+    # Versión fija: Playwright instala sus dependencias según la versión de Ubuntu
+    runs-on: ubuntu-24.04
+
+    # La app completa: PostgreSQL, la API y la página, como en la demo publicada
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: agenda
+          POSTGRES_PASSWORD: agenda
+          POSTGRES_DB: agenda
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agenda"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://agenda:agenda@localhost:5432/agenda
+      # Claves solo para este CI. No son las de producción.
+      JWT_SECRET: clave-de-prueba-solo-para-el-ci-no-usar-en-produccion
+      CLAVE_DE_LA_WEB: clave-de-la-web-solo-para-el-ci-no-usar-en-produccion
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            api/package-lock.json
+            web/package-lock.json
+
+      - name: Preparar la API (dependencias, base de datos y build)
+        working-directory: api
+        run: |
+          npm ci
+          npx prisma migrate deploy
+          npm run db:seed
+          npm run build
+
+      - name: Preparar la web (dependencias y build)
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Instalar el navegador de Playwright
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Tests e2e
+        working-directory: web
+        run: npm run e2e
+
+      - name: Guardar las trazas de Playwright
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trazas-playwright
+          path: web/test-results/
+          retention-days: 7
