@@ -4,7 +4,7 @@
 
 Una app de reservas para un club de pádel ficticio. Los jugadores eligen una cancha y un día, ven los horarios libres y reservan uno. Cuando alguien reserva, el horario aparece ocupado al instante en la pantalla de todos los demás, sin recargar la página. Los administradores ven y manejan todas las reservas.
 
-**Demo en vivo: [volea-reservas.vercel.app](https://volea-reservas.vercel.app)**. Entra con **Jugador demo** (una cuenta nueva solo para ti) o **Admin demo**. Para ver el tiempo real, ábrela en dos pantallas a la vez, por ejemplo en el celular y en el computador.
+**Demo en vivo: [volea-reservas.vercel.app](https://volea-reservas.vercel.app)**. Entra con **Jugador demo** (una cuenta nueva solo para ti) o **Admin demo**. El club tiene **socios simulados**: mientras miras una cancha, reservan y cancelan horas, así que vas a ver cambiar la grilla sola. También puedes abrir la demo en dos pantallas, por ejemplo en el celular y en el computador, y reservar tú.
 
 ![Dos jugadores en la misma cancha: la segunda pantalla se actualiza sola](docs/demo.gif)
 
@@ -103,6 +103,8 @@ La web le pasa a la API cada petición a `/api/...` (rewrites de Next.js). Para 
 
 El botón **Jugador demo** no usa la cuenta de jugador de la tabla: crea un jugador invitado nuevo para cada visitante (ver "Decisiones técnicas"). La cuenta de la tabla sirve para entrar escribiendo el email y la contraseña.
 
+El seed también crea 12 **socios simulados** (`socio-01@socios.example.com` a `socio-12@socios.example.com`). Nadie conoce su contraseña: solo los usa el simulador del club.
+
 ## Rutas de la API
 
 | Método | Ruta | Acceso | Qué hace |
@@ -143,6 +145,8 @@ La API y Socket.io comparten un mismo servidor HTTP. Cuando se crea o se cancela
 - El servidor envía `reserva:creada` y `reserva:cancelada` con `{ recursoId, inicio }`. Nada más: en tiempo real no viajan nombres ni emails, así que el socket no necesita la cookie de sesión.
 - En la página, un evento solo marca como desactualizados los datos de esa cancha, y TanStack Query los vuelve a pedir por la API normal. La API REST sigue siendo la única fuente de verdad.
 - Si se corta la conexión, Socket.io se reconecta solo. Después la página vuelve a entrar a sus salas y actualiza todo, por si se perdió algún evento. Un pequeño indicador "En vivo" muestra si la conexión está activa.
+- Cuando otra persona reserva o libera una hora de lo que estás mirando, aparece un aviso arriba ("Alguien acaba de reservar las 19:00") y esa hora se resalta un momento. Para saber qué cambió, la página compara la grilla de antes con la nueva, así no te avisa lo que hiciste tú.
+- Si escondes la pestaña, la página corta la conexión, y al volver se conecta y pide todo de nuevo. Una pestaña olvidada no mantiene trabajando al servidor.
 
 ## Cómo está publicada
 
@@ -184,12 +188,14 @@ Todo está en planes gratis:
 
 **Cada visitante recibe su propio jugador demo.** Si todos compartieran una cuenta, cada visitante vería las reservas de los demás, y como un jugador puede tener solo 2 reservas activas, la cuenta se llenaría. El botón "Jugador demo" llama a `POST /api/auth/invitado`, que crea un jugador nuevo ("Invitado 4F2A") con la sesión iniciada. Para que la demo no se llene de datos viejos, cada vez que se crea un invitado se borran los que tienen más de un día, con sus reservas, sin necesidad de una tarea programada. Un invitado dura lo mismo que una sesión.
 
+**El club tiene socios simulados, pero solo se mueven si alguien está mirando.** Una demo de reservas con todas las horas libres parece abandonada, y el tiempo real solo se notaba abriéndola en dos pantallas. Por eso cada día de la semana se llena con reservas de 12 socios simulados, con más gente en la tarde y la noche y en las mañanas del fin de semana, como en un club de verdad. Además, mientras alguien mira una cancha, cada 12 a 25 segundos un socio reserva o cancela una hora en ella, y la grilla de quien mira se actualiza en vivo. Los socios reservan más cuando la cancha tiene muchas horas libres y cancelan más cuando está casi llena, así no se llena ni se vacía con el tiempo. Nunca cancelan la reserva de un jugador, y el índice único les impide tomar una hora ya reservada. El simulador revisa en memoria qué canchas tienen a alguien mirando (las salas de Socket.io): si no hay nadie, no consulta la base de datos, porque Neon gratis tiene un límite de horas encendida al mes. Las reservas de los socios se guardan directo en la base de datos, sin pasar por las reglas de los jugadores, porque son datos de ejemplo. En un club de verdad se apaga con `SIMULAR_CLUB=false`.
+
 **La API sabe cuántos intermediarios hay delante.** Publicada, cada pedido pasa por Vercel, Cloudflare, la red interna de Render y un proxy local antes de llegar a Express, y cada uno anota una IP en `X-Forwarded-For`. Sin decirle a Express cuántos son (`trust proxy`), todos los visitantes parecerían venir de la misma IP y compartirían el límite de intentos del login. El número (`PROXIES_CONFIABLES=4`) se midió con la demo publicada, no se adivinó. Un test comprueba que, detrás de un proxy, cada visitante tiene su propio contador.
 
 ## Tests y CI
 
-- **API:** 55 tests con Vitest y Supertest: sesión, jugadores invitados, límite de intentos detrás de un proxy, reglas de las reservas (incluido dos personas reservando el mismo horario), roles y permisos, y eventos en tiempo real con clientes de Socket.io de verdad.
-- **Web:** 25 tests con Vitest y Testing Library: el cliente de la API, las funciones de fechas, la grilla de horarios, el formulario de login, el aviso de carga lenta y el hook de tiempo real.
+- **API:** 67 tests con Vitest y Supertest: sesión, jugadores invitados, límite de intentos detrás de un proxy, reglas de las reservas (incluido dos personas reservando el mismo horario), roles y permisos, eventos en tiempo real con clientes de Socket.io de verdad y los socios simulados (que nunca cancelan la reserva de un jugador y que no hacen nada si nadie mira).
+- **Web:** 34 tests con Vitest y Testing Library: el cliente de la API, las funciones de fechas, la grilla de horarios, el formulario de login, el aviso de carga lenta, el hook de tiempo real (también con la pestaña escondida) y los avisos de lo que cambió en vivo.
 - **CI:** GitHub Actions corre lint, tipos, tests y build de los dos proyectos en cada push. El trabajo de la API levanta su propio PostgreSQL.
 
 ## Limitaciones conocidas
@@ -199,7 +205,8 @@ Todo está en planes gratis:
 - La API usa planes gratis: si el despertador fallara, la primera visita tardaría hasta un minuto.
 - No hay refresh tokens: la sesión dura 1 día y después hay que volver a iniciar sesión.
 - "Mis reservas" no se actualiza en vivo. Se actualiza al volver a la pestaña. Para enviarle cambios haría falta una sala privada por usuario, revisando la sesión en el socket.
-- El límite de intentos del login y las salas de Socket.io viven en la memoria de un solo proceso de la API. Para correr varias copias de la API haría falta un almacenamiento compartido, como Redis, para las dos cosas.
+- La actividad de los socios es simulada: la demo lo dice en la pantalla de entrada, y sus cuentas usan el dominio `socios.example.com`.
+- El límite de intentos del login, las salas de Socket.io y el simulador del club viven en la memoria de un solo proceso de la API. Para correr varias copias de la API haría falta un almacenamiento compartido, como Redis, y que el simulador corra en una sola de ellas.
 
 ## Comandos
 
