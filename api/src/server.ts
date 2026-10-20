@@ -26,4 +26,10 @@ if (config.SIMULAR_CLUB) {
 
 servidorHttp.listen(config.PORT, () => {
   console.log(`API escuchando en http://localhost:${config.PORT}`);
+  // Así se ve en el log de Render si los correos salen de verdad, sin mostrar la clave
+  console.log(
+    config.BREVO_API_KEY
+      ? `Correos con Brevo, desde ${config.CORREO_REMITENTE}`
+      : "Correos solo en la consola (falta BREVO_API_KEY)",
+  );
 });
