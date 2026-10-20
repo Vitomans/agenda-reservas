@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { db } from "../src/db.ts";
+import { emailDeSocio, SOCIOS } from "../src/servicios/clubSimulado.ts";
 import { hashearPassword } from "../src/servicios/passwords.ts";
 
 // Datos de ejemplo para desarrollo y para la demo pública.
@@ -26,6 +28,16 @@ try {
     });
   }
 
+  // Los socios simulados que reservan en la demo (ver src/servicios/clubSimulado.ts).
+  // Nadie conoce su contraseña: no se puede entrar con sus cuentas.
+  for (const [i, nombre] of SOCIOS.entries()) {
+    await db.usuario.upsert({
+      where: { email: emailDeSocio(i + 1) },
+      update: { nombre },
+      create: { nombre, email: emailDeSocio(i + 1), passwordHash: await hashearPassword(randomUUID()) },
+    });
+  }
+
   for (const nombre of CANCHAS) {
     await db.recurso.upsert({
       where: { nombre },
@@ -34,7 +46,9 @@ try {
     });
   }
 
-  console.log(`Datos de ejemplo listos: ${usuariosDemo.length} usuarios demo y ${CANCHAS.length} canchas.`);
+  console.log(
+    `Datos de ejemplo listos: ${usuariosDemo.length} usuarios demo, ${SOCIOS.length} socios simulados y ${CANCHAS.length} canchas.`,
+  );
 } finally {
   await db.$disconnect();
 }

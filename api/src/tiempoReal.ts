@@ -40,8 +40,10 @@ export const sinAvisos: Avisador = {
 const esquemaCanchas = z.array(z.uuid()).max(50);
 
 // Cada cancha tiene su "sala": un grupo de conexiones que reciben los mismos avisos
+const PREFIJO_SALA = "recurso:";
+
 function salaDeCancha(recursoId: string) {
-  return `recurso:${recursoId}`;
+  return `${PREFIJO_SALA}${recursoId}`;
 }
 
 // Crea el servidor de Socket.io. Todavía no escucha: server.ts lo engancha al servidor HTTP con attach().
@@ -57,7 +59,7 @@ export function crearTiempoReal() {
 
       // Sale de las salas de antes y entra a las nuevas (por ejemplo, si el jugador cambió de cancha)
       for (const sala of [...socket.rooms]) {
-        if (sala.startsWith("recurso:")) await socket.leave(sala);
+        if (sala.startsWith(PREFIJO_SALA)) await socket.leave(sala);
       }
       await socket.join(resultado.data.map(salaDeCancha));
 
@@ -74,5 +76,16 @@ export function crearTiempoReal() {
     reservaCancelada: (reserva) => avisar("reserva:cancelada", reserva),
   };
 
-  return { io, avisador };
+  // Las canchas que alguien está mirando ahora, repetidas una vez por cada conexión que la mira.
+  // La usa el simulador del club (simulador.ts): las canchas con más gente mirando se mueven más.
+  function canchasMiradas() {
+    const ids: string[] = [];
+    for (const [sala, conexiones] of io.of("/").adapter.rooms) {
+      if (!sala.startsWith(PREFIJO_SALA)) continue; // cada conexión también tiene una sala propia
+      for (let i = 0; i < conexiones.size; i++) ids.push(sala.slice(PREFIJO_SALA.length));
+    }
+    return ids;
+  }
+
+  return { io, avisador, canchasMiradas };
 }

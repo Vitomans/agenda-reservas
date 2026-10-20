@@ -14,6 +14,9 @@ const esquema = z.object({
   // Publicada hay varios (Vercel y el balanceador del hosting), y sin este número la API
   // creería que todos los pedidos vienen de la misma IP. Ver crearApp en app.ts.
   PROXIES_CONFIABLES: z.coerce.number().int().min(0).default(0),
+  // Socios simulados que reservan y cancelan mientras alguien mira la demo (ver simulador.ts).
+  // En un club de verdad se apaga con SIMULAR_CLUB=false.
+  SIMULAR_CLUB: z.stringbool().default(true),
 });
 
 const resultado = esquema.safeParse(process.env);
