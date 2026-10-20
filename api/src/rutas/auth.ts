@@ -2,10 +2,10 @@ import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { db, esErrorDePrisma } from "../db.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
-import { requiereSesion, usuarioDeSesion } from "../middlewares/sesion.ts";
+import { sesionOpcional } from "../middlewares/sesion.ts";
 import { crearInvitado } from "../servicios/invitados.ts";
 import { compararPassword, hashearPassword } from "../servicios/passwords.ts";
-import { cerrarSesion, iniciarSesion } from "../servicios/sesion.ts";
+import { cerrarSesion, iniciarSesion, NOMBRE_COOKIE } from "../servicios/sesion.ts";
 import { esquemaLogin, esquemaRegistro } from "../validacion/auth.ts";
 
 // Datos del usuario que se pueden mandar al cliente. El hash de la contraseña nunca sale de la API.
@@ -78,17 +78,16 @@ export function crearRutasAuth() {
     res.status(204).end();
   });
 
-  // Devuelve el usuario de la sesión actual. El frontend lo usa al cargar para saber quién entró.
-  rutas.get("/yo", requiereSesion, async (req, res) => {
-    const usuario = await db.usuario.findUnique({
-      where: { id: usuarioDeSesion(req).id },
-      select: DATOS_PUBLICOS,
-    });
+  // Devuelve el usuario de la sesión actual, o null si nadie entró. El frontend lo usa al cargar para saber quién entró.
+  // Sin sesión responde 200 y no 401: entrar a la página sin haber iniciado sesión es normal, no un error.
+  rutas.get("/yo", sesionOpcional, async (req, res) => {
+    const usuario = req.usuario
+      ? await db.usuario.findUnique({ where: { id: req.usuario.id }, select: DATOS_PUBLICOS })
+      : null;
 
-    // El token era válido, pero la cuenta ya no existe
-    if (!usuario) {
+    // Si llegó una cookie que no sirve (vencida, editada o de una cuenta que ya no existe), se borra
+    if (!usuario && req.cookies?.[NOMBRE_COOKIE]) {
       cerrarSesion(res);
-      throw new ErrorHttp(401, "Tienes que iniciar sesión");
     }
 
     res.json({ usuario });

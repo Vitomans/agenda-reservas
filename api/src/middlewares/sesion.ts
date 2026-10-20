@@ -10,16 +10,28 @@ declare module "express-serve-static-core" {
   }
 }
 
+// El usuario del token que viene en la cookie, o null si no hay cookie o el token no sirve
+function usuarioDeLaCookie(req: Request) {
+  const token: unknown = req.cookies?.[NOMBRE_COOKIE];
+  return typeof token === "string" ? leerToken(token) : null;
+}
+
 // Protege una ruta: si no hay una sesión válida responde 401 y la ruta no se ejecuta.
 export const requiereSesion: RequestHandler = (req, _res, next) => {
-  const token: unknown = req.cookies?.[NOMBRE_COOKIE];
-  const usuario = typeof token === "string" ? leerToken(token) : null;
+  const usuario = usuarioDeLaCookie(req);
 
   if (!usuario) {
     throw new ErrorHttp(401, "Tienes que iniciar sesión");
   }
 
   req.usuario = usuario;
+  next();
+};
+
+// Para las rutas que también se ven sin entrar, como las canchas y sus horarios.
+// Si hay una sesión válida la deja en req.usuario (así se marcan las reservas propias); si no, sigue igual.
+export const sesionOpcional: RequestHandler = (req, _res, next) => {
+  req.usuario = usuarioDeLaCookie(req) ?? undefined;
   next();
 };
 

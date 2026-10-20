@@ -199,14 +199,15 @@ describe("POST /api/auth/invitado", () => {
 });
 
 describe("GET /api/auth/yo", () => {
-  it("responde 401 si no hay sesión", async () => {
+  it("sin sesión responde 200 con usuario null (no es un error)", async () => {
     const respuesta = await request(crearApp()).get("/api/auth/yo");
 
-    expect(respuesta.status).toBe(401);
-    expect(respuesta.body).toEqual({ error: "Tienes que iniciar sesión" });
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toEqual({ usuario: null });
+    expect(cookieDeSesion(respuesta)).toBeUndefined();
   });
 
-  it("responde 401 si alguien edita su token para hacerse admin", async () => {
+  it("no reconoce un token editado para hacerse admin, y borra esa cookie", async () => {
     const app = crearApp();
     const login = await request(app)
       .post("/api/auth/login")
@@ -222,7 +223,8 @@ describe("GET /api/auth/yo", () => {
     const respuesta = await request(app).get("/api/auth/yo").set("Cookie", `sesion=${tokenFalso}`);
 
     // La firma ya no coincide con los datos, así que el token no sirve
-    expect(respuesta.status).toBe(401);
+    expect(respuesta.body).toEqual({ usuario: null });
+    expect(cookieDeSesion(respuesta)).toContain("Expires=Thu, 01 Jan 1970");
   });
 });
 
@@ -236,6 +238,6 @@ describe("POST /api/auth/logout", () => {
 
     expect(respuesta.status).toBe(204);
     expect(cookieDeSesion(respuesta)).toContain("Expires=Thu, 01 Jan 1970");
-    expect((await navegador.get("/api/auth/yo")).status).toBe(401);
+    expect((await navegador.get("/api/auth/yo")).body).toEqual({ usuario: null });
   });
 });
