@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { rateLimit } from "express-rate-limit";
+import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import { db, esErrorDePrisma } from "../db.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
 import { sesionOpcional } from "../middlewares/sesion.ts";
+import { ipDelVisitante } from "../middlewares/soloDesdeLaWeb.ts";
 import { crearInvitado } from "../servicios/invitados.ts";
 import { compararPassword, hashearPassword } from "../servicios/passwords.ts";
 import { cerrarSesion, iniciarSesion, NOMBRE_COOKIE } from "../servicios/sesion.ts";
@@ -23,6 +24,11 @@ export function crearRutasAuth() {
     standardHeaders: "draft-8",
     legacyHeaders: false,
     message: { error: "Demasiados intentos. Espera unos minutos y vuelve a probar." },
+    // Los intentos se cuentan por visitante: con la IP que mandó la página, o la de la conexión.
+    // ipKeyGenerator junta las IPv6 de una misma red, porque una persona puede tener muchísimas.
+    keyGenerator: (req) => ipKeyGenerator(ipDelVisitante(req)),
+    // La API no lee X-Forwarded-For (cualquiera la puede escribir), así que no hace falta que avise si llega
+    validate: { xForwardedForHeader: false },
   });
 
   // Crea una cuenta de cliente y deja la sesión iniciada

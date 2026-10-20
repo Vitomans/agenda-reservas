@@ -30,10 +30,10 @@ services:
       # Render inventa una clave aleatoria de 256 bits. Nunca se escribe en ningún archivo.
       - key: JWT_SECRET
         generateValue: true
-      # Medido el 2026-10-14: entre el navegador y la API hay 4 intermediarios.
-      # Vercel (el puente de next.config.ts), Cloudflare, la red interna de Render y un proxy local.
-      - key: PROXIES_CONFIABLES
-        value: "4"
+      # La misma clave que tiene la página en Vercel: así la API solo atiende los pedidos que pasan
+      # por la página (ver api/src/middlewares/soloDesdeLaWeb.ts). Se escribe a mano en Render.
+      - key: CLAVE_DE_LA_WEB
+        sync: false
       # Correos de confirmación con Brevo. La clave se escribe a mano en Render y el remitente
       # tiene que estar confirmado en Brevo (Senders, Domains & Dedicated IPs).
       - key: BREVO_API_KEY

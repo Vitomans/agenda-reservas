@@ -7,6 +7,7 @@ import { type Cartero, sinCorreos } from "./cartero.ts";
 import { config } from "./config.ts";
 import { documentacion } from "./documentacion.ts";
 import { manejarErrores, rutaNoEncontrada } from "./middlewares/errores.ts";
+import { soloDesdeLaWeb } from "./middlewares/soloDesdeLaWeb.ts";
 import { crearRutasAdmin } from "./rutas/admin.ts";
 import { crearRutasAuth } from "./rutas/auth.ts";
 import { crearRutasHorario } from "./rutas/horario.ts";
@@ -18,18 +19,13 @@ import { type Avisador, sinAvisos } from "./tiempoReal.ts";
 // Así los tests la usan directo con Supertest, y server.ts la levanta de verdad.
 // "avisador" es lo que usan las rutas para avisar en vivo (ver tiempoReal.ts),
 // y "cartero", lo que usan para enviar los correos (ver cartero.ts).
+// "claveDeLaWeb" hace que la API atienda solo los pedidos que pasan por la página (ver soloDesdeLaWeb.ts).
 export function crearApp({
   avisador = sinAvisos,
   cartero = sinCorreos,
-  proxiesConfiables = config.PROXIES_CONFIABLES,
-}: { avisador?: Avisador; cartero?: Cartero; proxiesConfiables?: number } = {}) {
+  claveDeLaWeb = config.CLAVE_DE_LA_WEB,
+}: { avisador?: Avisador; cartero?: Cartero; claveDeLaWeb?: string } = {}) {
   const app = express();
-
-  // Cada intermediario anota en la cabecera X-Forwarded-For la IP de quien le habló.
-  // Express confía en los últimos "proxiesConfiables" intermediarios y toma como req.ip la IP
-  // que anotaron ellos, que es la del visitante (la usa el límite de intentos). El resto de la
-  // cabecera se ignora, porque cualquiera la puede escribir a mano.
-  app.set("trust proxy", proxiesConfiables);
 
   app.use(helmet()); // cabeceras de seguridad
   app.use(cors({ origin: config.WEB_URL, credentials: true })); // solo el frontend puede llamar a la API
@@ -53,6 +49,9 @@ export function crearApp({
       customCss: ".swagger-ui .topbar { display: none }",
     }),
   );
+
+  // Desde aquí, todo lo de /api pide la clave de la página (si está configurada)
+  app.use("/api", soloDesdeLaWeb(claveDeLaWeb));
 
   app.use("/api/auth", crearRutasAuth());
   app.use("/api/horario", crearRutasHorario());

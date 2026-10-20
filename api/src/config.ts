@@ -10,10 +10,9 @@ const esquema = z.object({
   DATABASE_URL: z.string().min(1),
   // Clave con la que se firman los tokens de sesión. Si alguien la conoce, puede falsificar sesiones.
   JWT_SECRET: z.string().min(32, { error: "Debe tener al menos 32 caracteres" }),
-  // Cuántos intermediarios (proxies) hay entre el navegador y la API. En local no hay ninguno.
-  // Publicada hay varios (Vercel y el balanceador del hosting), y sin este número la API
-  // creería que todos los pedidos vienen de la misma IP. Ver crearApp en app.ts.
-  PROXIES_CONFIABLES: z.coerce.number().int().min(0).default(0),
+  // Clave que comparten la página y la API. Si está, la API solo atiende los pedidos que pasan por la página,
+  // que le dice además la IP de cada visitante (ver middlewares/soloDesdeLaWeb.ts). En local no hace falta.
+  CLAVE_DE_LA_WEB: z.string().min(32, { error: "Debe tener al menos 32 caracteres" }).optional(),
   // Socios simulados que reservan y cancelan mientras alguien mira la demo (ver simulador.ts).
   // En un club de verdad se apaga con SIMULAR_CLUB=false.
   SIMULAR_CLUB: z.stringbool().default(true),
