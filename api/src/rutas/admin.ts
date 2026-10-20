@@ -3,6 +3,7 @@ import { db, esErrorDePrisma } from "../db.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
 import { requiereSesion, soloRoles } from "../middlewares/sesion.ts";
 import { reservasDelDia } from "../servicios/reservas.ts";
+import { resumenDelDia } from "../servicios/resumen.ts";
 import { esquemaEditarRecurso, esquemaNuevoRecurso } from "../validacion/recursos.ts";
 import { esquemaFecha } from "../validacion/reservas.ts";
 
@@ -20,6 +21,13 @@ export function crearRutasAdmin() {
     const reservas = await reservasDelDia(fecha);
 
     res.json({ fecha, reservas });
+  });
+
+  // Los números del día para el dueño: ocupación e ingresos del día y de la semana, y la hora más pedida
+  rutas.get("/resumen", async (req, res) => {
+    const { fecha } = esquemaFecha.parse(req.query);
+
+    res.json(await resumenDelDia(fecha));
   });
 
   // Todas las canchas, también las desactivadas (para poder volver a activarlas)

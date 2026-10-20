@@ -20,6 +20,7 @@ afterAll(async () => {
 describe("permisos", () => {
   const rutasDeAdmin = [
     { metodo: "get", url: `/api/admin/reservas?fecha=${dia(1)}` },
+    { metodo: "get", url: `/api/admin/resumen?fecha=${dia(1)}` },
     { metodo: "get", url: "/api/admin/recursos" },
     { metodo: "post", url: "/api/admin/recursos" },
     { metodo: "patch", url: "/api/admin/recursos/cualquiera" },

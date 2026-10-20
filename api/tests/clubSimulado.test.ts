@@ -7,6 +7,7 @@ import { db } from "../src/db.ts";
 import {
   DOMINIO_SOCIOS,
   diaParaMover,
+  diasDelRelleno,
   emailDeSocio,
   moverElClub,
   probabilidadDeOcupacion,
@@ -53,6 +54,14 @@ describe("probabilidadDeOcupacion", () => {
 });
 
 describe("rellenarDias", () => {
+  it("rellena las dos semanas anteriores y los 7 días que se pueden reservar", () => {
+    const dias = diasDelRelleno();
+
+    expect(dias).toHaveLength(21);
+    expect(dias[0]).toBe(dia(-14));
+    expect(dias.at(-1)).toBe(dia(6));
+  });
+
   it("llena la cancha con reservas confirmadas de socios", async () => {
     const cancha = await crearCanchaDePrueba();
 

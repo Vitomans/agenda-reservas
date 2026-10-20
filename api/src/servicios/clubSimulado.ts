@@ -7,7 +7,8 @@ import { precioDelBloque } from "./precios.ts";
 
 // "Socios simulados": jugadores de mentira que le dan vida a la demo.
 // 1. rellenarDias() llena cada día de la semana con reservas de socios, más en la tarde y la noche,
-//    como en un club de verdad. Así quien entra no ve un club vacío.
+//    como en un club de verdad. Así quien entra no ve un club vacío. También llena las dos semanas
+//    anteriores, para que los números del panel de admin tengan historia.
 // 2. moverElClub() hace que un socio reserve o cancele una hora. La usa simulador.ts mientras alguien
 //    mira una cancha, para que se vea el tiempo real sin tener que abrir la demo en dos pantallas.
 //
@@ -51,8 +52,19 @@ const OCUPACION_FIN_DE_SEMANA: Record<number, number> = {
 // Los días lejanos tienen menos reservas, porque la gente reserva con pocos días de anticipación
 const MENOS_POR_DIA_DE_DISTANCIA = 0.08;
 
-// Las reservas de socios de hace más de este tiempo se borran, para que la base de datos no crezca sin fin
+// Cuántos días hacia atrás se rellenan, y desde cuántos días se borran las reservas viejas de los socios
+// (para que la base de datos no crezca sin fin)
+const DIAS_DE_HISTORIA_RELLENA = 14;
 const DIAS_DE_HISTORIA = 30;
+
+// Los días que se rellenan: las dos semanas anteriores y los 7 días que se pueden reservar
+export function diasDelRelleno() {
+  const [hoy] = diasReservables();
+  const anteriores = Array.from({ length: DIAS_DE_HISTORIA_RELLENA }, (_, i) =>
+    DateTime.fromISO(hoy, { zone: ZONA_HORARIA }).minus({ days: DIAS_DE_HISTORIA_RELLENA - i }).toISODate()!,
+  );
+  return [...anteriores, ...diasReservables()];
+}
 
 // La probabilidad de que una hora esté reservada. "diasDesdeHoy" es 0 para hoy, 1 para mañana, etc.
 export function probabilidadDeOcupacion(dia: string, hora: number, diasDesdeHoy: number) {
@@ -79,7 +91,7 @@ function buscarSocios() {
 // Llena con reservas de socios cada cancha en cada día que todavía no tiene ninguna.
 // Si ya tiene (aunque estén canceladas), no la toca: así no se deshace lo que pasó durante el día.
 // Devuelve una reserva nueva por cada cancha que recibió reservas, para poder avisar en vivo.
-export async function rellenarDias({ dias = diasReservables(), recursoIds }: { dias?: string[]; recursoIds?: string[] } = {}) {
+export async function rellenarDias({ dias = diasDelRelleno(), recursoIds }: { dias?: string[]; recursoIds?: string[] } = {}) {
   const socios = await buscarSocios();
   const canchas = await db.recurso.findMany({
     where: { activo: true, ...(recursoIds && { id: { in: recursoIds } }) },
