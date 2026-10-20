@@ -14,6 +14,8 @@ export type Horario = {
   horaApertura: number;
   horaCierre: number;
   dias: string[]; // los 7 días que se pueden reservar, desde hoy: "AAAA-MM-DD"
+  // Pesos chilenos por hora. La hora punta es de lunes a viernes desde "inicioPuntaEntreSemana", y todo el fin de semana.
+  tarifa: { precioNormal: number; precioPunta: number; inicioPuntaEntreSemana: number };
 };
 
 export type Recurso = {
@@ -32,6 +34,7 @@ export type Bloque = {
   fin: string;
   hora: string; // por ejemplo "19:00", en la hora del club
   estado: EstadoBloque;
+  precio: number; // en pesos chilenos
 };
 
 export type Reserva = {
@@ -39,6 +42,7 @@ export type Reserva = {
   inicio: string;
   fin: string;
   estado: "CONFIRMADA" | "CANCELADA";
+  precio: number; // lo que costó, en pesos chilenos
   recurso: Recurso;
 };
 

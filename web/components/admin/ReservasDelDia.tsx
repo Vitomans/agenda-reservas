@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useCancelarReserva, useReservasDelDia } from "@/lib/consultas";
+import { formatearPesos } from "@/lib/dinero";
 import { diaLargo, horaEnElClub, sumarDias } from "@/lib/fechas";
 import { Aviso, Cargando } from "../Aviso";
 import { Boton } from "../Boton";
@@ -83,7 +84,7 @@ export function ReservasDelDia({ hoy, zonaHoraria }: { hoy: string; zonaHoraria:
                   <span className="w-14 font-semibold tabular-nums">{horaEnElClub(reserva.inicio, zonaHoraria)}</span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">
-                      {reserva.recurso.nombre}
+                      {reserva.recurso.nombre} · <span className="tabular-nums">{formatearPesos(reserva.precio)}</span>
                       {cancelada && (
                         <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-600">
                           Cancelada

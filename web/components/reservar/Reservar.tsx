@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useCambiosEnVivo } from "@/lib/cambios";
 import { useDisponibilidad, useHorario, useRecursos, useReservar } from "@/lib/consultas";
+import { formatearPesos } from "@/lib/dinero";
 import { describirHorario, diaLargo, horaEnElClub } from "@/lib/fechas";
 import { useTiempoReal } from "@/lib/tiempoReal";
 import type { Reserva } from "@/lib/tipos";
@@ -52,7 +53,7 @@ export function Reservar() {
     return <Aviso>Por ahora no hay canchas disponibles.</Aviso>;
   }
 
-  const { zonaHoraria } = horario.data;
+  const { zonaHoraria, tarifa } = horario.data;
 
   // Al cambiar algo se borran la elección y los mensajes anteriores
   function empezarDeNuevo() {
@@ -81,7 +82,11 @@ export function Reservar() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Reservar cancha</h1>
-          <p className="mt-1 text-sm text-slate-600">Elige la cancha, el día y la hora. Cada reserva dura 1 hora.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Elige la cancha, el día y la hora. Cada reserva dura 1 hora y cuesta {formatearPesos(tarifa.precioNormal)},
+            o {formatearPesos(tarifa.precioPunta)} en hora punta (de lunes a viernes desde las{" "}
+            {tarifa.inicioPuntaEntreSemana}:00, y todo el fin de semana).
+          </p>
         </div>
         <EnVivo conectado={enVivo} />
       </div>
@@ -108,7 +113,7 @@ export function Reservar() {
       {reservaHecha && (
         <Aviso tipo="exito">
           ¡Listo! Reservaste la {reservaHecha.recurso.nombre} el{" "}
-          {describirHorario(reservaHecha.inicio, reservaHecha.fin, zonaHoraria)}.{" "}
+          {describirHorario(reservaHecha.inicio, reservaHecha.fin, zonaHoraria)} ({formatearPesos(reservaHecha.precio)}).{" "}
           <Link href="/mis-reservas" className="font-medium underline">
             Ver mis reservas
           </Link>
@@ -152,7 +157,7 @@ export function Reservar() {
               {recurso.nombre} · {diaLargo(dia)}
             </p>
             <p className="text-lg font-semibold tabular-nums">
-              {bloqueElegido.hora} a {horaEnElClub(bloqueElegido.fin, zonaHoraria)}
+              {bloqueElegido.hora} a {horaEnElClub(bloqueElegido.fin, zonaHoraria)} · {formatearPesos(bloqueElegido.precio)}
             </p>
           </div>
           <div className="flex items-center gap-2">

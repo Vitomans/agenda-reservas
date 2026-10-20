@@ -1,3 +1,4 @@
+import { formatearPesos } from "@/lib/dinero";
 import type { Bloque, EstadoBloque } from "@/lib/tipos";
 
 // Cómo se ve cada estado. Solo los bloques libres se pueden elegir.
@@ -35,6 +36,8 @@ export function GrillaDeHorarios({ bloques, elegido, onElegir, resaltados = [] }
         const estaElegido = bloque.inicio === elegido && bloque.estado === "libre";
         const estado = ESTADOS[bloque.estado];
         const texto = estaElegido ? "Elegido" : estado.texto;
+        // En las horas libres se muestra el precio en vez de la palabra "Libre"
+        const precio = bloque.estado === "libre" ? formatearPesos(bloque.precio) : null;
         // Un destello si se mueve la pantalla; si la persona pidió menos animaciones, un borde quieto
         const resaltado = resaltados.includes(bloque.inicio)
           ? "motion-safe:animate-destello motion-reduce:ring-2 motion-reduce:ring-lime-400"
@@ -46,15 +49,15 @@ export function GrillaDeHorarios({ bloques, elegido, onElegir, resaltados = [] }
               type="button"
               disabled={bloque.estado !== "libre"}
               aria-pressed={bloque.estado === "libre" ? estaElegido : undefined}
-              // Así un lector de pantalla dice "09:00, Libre" y no junta los dos textos
-              aria-label={`${bloque.hora}, ${texto}`}
+              // Así un lector de pantalla dice "09:00, Libre, $12.000" y no junta los textos
+              aria-label={[bloque.hora, texto, precio].filter(Boolean).join(", ")}
               onClick={() => onElegir(bloque)}
               className={`flex w-full flex-col items-center rounded-xl border px-2 py-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-default ${
                 estaElegido ? "border-lime-500 bg-lime-100 text-slate-900 ring-2 ring-lime-400" : estado.clases
               } ${resaltado}`}
             >
               <span className="text-base font-semibold tabular-nums">{bloque.hora}</span>
-              <span className="text-xs">{texto}</span>
+              <span className="text-xs tabular-nums">{estaElegido || !precio ? texto : precio}</span>
             </button>
           </li>
         );

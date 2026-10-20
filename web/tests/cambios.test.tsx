@@ -5,7 +5,7 @@ import { cambiosEntre, DURACION_AVISO_MS, textoDelCambio, useCambiosEnVivo } fro
 import type { Bloque } from "@/lib/tipos";
 
 function bloque(hora: string, estado: Bloque["estado"]): Bloque {
-  return { inicio: `2026-10-13T${hora}:00.000Z`, fin: `2026-10-13T${hora}:59.000Z`, hora, estado };
+  return { inicio: `2026-10-13T${hora}:00.000Z`, fin: `2026-10-13T${hora}:59.000Z`, hora, estado, precio: 12_000 };
 }
 
 describe("cambiosEntre", () => {

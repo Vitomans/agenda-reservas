@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useCancelarReserva, useHorario, useMisReservas } from "@/lib/consultas";
+import { formatearPesos } from "@/lib/dinero";
 import { describirHorario } from "@/lib/fechas";
 import { Aviso, Cargando } from "./Aviso";
 import { Boton } from "./Boton";
@@ -48,7 +49,7 @@ export function MisReservas() {
               <div>
                 <p className="font-semibold">{reserva.recurso.nombre}</p>
                 <p className="text-sm text-slate-600 tabular-nums">
-                  {describirHorario(reserva.inicio, reserva.fin, horario.data.zonaHoraria)}
+                  {describirHorario(reserva.inicio, reserva.fin, horario.data.zonaHoraria)} · {formatearPesos(reserva.precio)}
                 </p>
               </div>
 
