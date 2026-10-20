@@ -34,3 +34,9 @@ services:
       # Vercel (el puente de next.config.ts), Cloudflare, la red interna de Render y un proxy local.
       - key: PROXIES_CONFIABLES
         value: "4"
+      # Correos de confirmación con Brevo. La clave se escribe a mano en Render y el remitente
+      # tiene que estar confirmado en Brevo (Senders, Domains & Dedicated IPs).
+      - key: BREVO_API_KEY
+        sync: false
+      - key: CORREO_REMITENTE
+        value: vitomanmendez@gmail.com

@@ -17,6 +17,10 @@ const esquema = z.object({
   // Socios simulados que reservan y cancelan mientras alguien mira la demo (ver simulador.ts).
   // En un club de verdad se apaga con SIMULAR_CLUB=false.
   SIMULAR_CLUB: z.stringbool().default(true),
+  // Clave de la API de Brevo para enviar los correos de verdad. Sin ella, los correos solo se anotan en la consola.
+  BREVO_API_KEY: z.string().min(1).optional(),
+  // Desde qué dirección salen los correos. Brevo pide confirmarla antes de poder usarla.
+  CORREO_REMITENTE: z.email().default("reservas@volea.example.com"),
 });
 
 const resultado = esquema.safeParse(process.env);

@@ -2,6 +2,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import { type Cartero, sinCorreos } from "./cartero.ts";
 import { config } from "./config.ts";
 import { manejarErrores, rutaNoEncontrada } from "./middlewares/errores.ts";
 import { crearRutasAdmin } from "./rutas/admin.ts";
@@ -13,11 +14,13 @@ import { type Avisador, sinAvisos } from "./tiempoReal.ts";
 
 // Arma la app de Express sin ponerla a escuchar en un puerto.
 // Así los tests la usan directo con Supertest, y server.ts la levanta de verdad.
-// "avisador" es lo que usan las rutas para avisar en vivo (ver tiempoReal.ts).
+// "avisador" es lo que usan las rutas para avisar en vivo (ver tiempoReal.ts),
+// y "cartero", lo que usan para enviar los correos (ver cartero.ts).
 export function crearApp({
   avisador = sinAvisos,
+  cartero = sinCorreos,
   proxiesConfiables = config.PROXIES_CONFIABLES,
-}: { avisador?: Avisador; proxiesConfiables?: number } = {}) {
+}: { avisador?: Avisador; cartero?: Cartero; proxiesConfiables?: number } = {}) {
   const app = express();
 
   // Cada intermediario anota en la cabecera X-Forwarded-For la IP de quien le habló.
@@ -39,7 +42,7 @@ export function crearApp({
   app.use("/api/auth", crearRutasAuth());
   app.use("/api/horario", crearRutasHorario());
   app.use("/api/recursos", crearRutasRecursos());
-  app.use("/api/reservas", crearRutasReservas(avisador));
+  app.use("/api/reservas", crearRutasReservas(avisador, cartero));
   app.use("/api/admin", crearRutasAdmin());
 
   app.use(rutaNoEncontrada);

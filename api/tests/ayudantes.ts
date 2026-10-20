@@ -10,6 +10,9 @@ import { DOMINIO_INVITADOS } from "../src/servicios/invitados.ts";
 // así que todo lo que crean lleva una marca para poder borrarlo al final.
 
 const DOMINIO_DE_PRUEBA = "@tests.example.com";
+// Para los tests de correos hace falta un correo que no sea de example.com (a esos no se les envía nada).
+// ".test" también está reservado para pruebas: nunca llega a nadie, y en los tests el cartero es falso.
+const DOMINIO_DE_PRUEBA_CON_CORREO = "@correos.volea.test";
 const PREFIJO_CANCHA_DE_PRUEBA = "Prueba ";
 
 export function emailNuevo() {
@@ -30,6 +33,16 @@ export async function entrarComoJugadorNuevo(app: Express) {
     .send({ nombre: "Jugador de prueba", email: emailNuevo(), password: "clave-segura" });
 
   return { navegador, usuario: respuesta.body.usuario as { id: string } };
+}
+
+// Igual, pero con un correo que la API considera "de verdad", para probar los correos
+export async function entrarComoJugadorConCorreo(app: Express) {
+  const navegador = request.agent(app);
+  const respuesta = await navegador
+    .post("/api/auth/registro")
+    .send({ nombre: "Ana Prueba", email: `jugador-${randomUUID()}${DOMINIO_DE_PRUEBA_CON_CORREO}`, password: "clave-segura" });
+
+  return { navegador, usuario: respuesta.body.usuario as { id: string; email: string } };
 }
 
 export async function entrarComoAdmin(app: Express) {
@@ -67,7 +80,11 @@ export function dia(diasDesdeHoy: number) {
 // También borra los jugadores invitados: los tests nunca corren contra la base de datos publicada.
 export async function borrarDatosDePrueba() {
   const usuariosDePrueba = {
-    OR: [{ email: { endsWith: DOMINIO_DE_PRUEBA } }, { email: { endsWith: DOMINIO_INVITADOS } }],
+    OR: [
+      { email: { endsWith: DOMINIO_DE_PRUEBA } },
+      { email: { endsWith: DOMINIO_DE_PRUEBA_CON_CORREO } },
+      { email: { endsWith: DOMINIO_INVITADOS } },
+    ],
   };
   const deCanchaDePrueba = { recurso: { nombre: { startsWith: PREFIJO_CANCHA_DE_PRUEBA } } };
 
