@@ -33,6 +33,7 @@ export function FormularioRegistro() {
         type="email"
         autoComplete="email"
         required
+        ayuda="Aquí te llega la confirmación de cada reserva."
         errores={error?.detalles.email}
       />
       <CampoTexto

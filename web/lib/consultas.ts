@@ -1,6 +1,17 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ErrorApi, pedirApi } from "./api";
-import type { Bloque, Horario, Recurso, RecursoAdmin, Reserva, ReservaAdmin, Resumen, Rol, Usuario } from "./tipos";
+import type {
+  Bloque,
+  Horario,
+  Recurso,
+  RecursoAdmin,
+  Reserva,
+  ReservaAdmin,
+  Resumen,
+  Rol,
+  Usuario,
+  VistaDeCorreo,
+} from "./tipos";
 
 // Todo lo que la página le pide a la API pasa por aquí.
 //
@@ -13,6 +24,7 @@ export const claves = {
   recursos: ["recursos"],
   disponibilidad: ["disponibilidad"],
   misReservas: ["mis-reservas"],
+  correo: ["correo"],
   reservasDelDia: ["admin", "reservas"],
   resumen: ["admin", "resumen"],
   canchasAdmin: ["admin", "recursos"],
@@ -70,6 +82,15 @@ export function useMisReservas() {
   return useQuery({
     queryKey: claves.misReservas,
     queryFn: async () => (await pedirApi<{ reservas: Reserva[] }>("/reservas/mias")).reservas,
+  });
+}
+
+// El correo de confirmación de una reserva. No cambia, así que se pide una sola vez.
+export function useVistaDelCorreo(reservaId: string) {
+  return useQuery({
+    queryKey: [...claves.correo, reservaId],
+    queryFn: () => pedirApi<VistaDeCorreo>(`/reservas/${reservaId}/correo`),
+    staleTime: Infinity,
   });
 }
 

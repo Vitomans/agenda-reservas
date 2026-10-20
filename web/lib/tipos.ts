@@ -50,6 +50,14 @@ export type ReservaAdmin = Reserva & {
   usuario: { id: string; nombre: string; email: string };
 };
 
+// El correo de confirmación de una reserva, para la vista previa (ver api/src/servicios/correos.ts)
+export type VistaDeCorreo = {
+  para: string;
+  asunto: string;
+  html: string;
+  seEnvia: boolean; // false para los jugadores demo, que no tienen un correo real
+};
+
 // Los números del día para el dueño (ver api/src/servicios/resumen.ts)
 export type Resumen = {
   fecha: string;

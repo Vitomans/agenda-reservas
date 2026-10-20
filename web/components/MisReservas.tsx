@@ -7,6 +7,7 @@ import { formatearPesos } from "@/lib/dinero";
 import { describirHorario } from "@/lib/fechas";
 import { Aviso, Cargando } from "./Aviso";
 import { Boton } from "./Boton";
+import { VistaDelCorreo } from "./VistaDelCorreo";
 
 export function MisReservas() {
   const horario = useHorario();
@@ -14,6 +15,8 @@ export function MisReservas() {
   const cancelar = useCancelarReserva();
   // La reserva que espera la confirmación "¿Seguro?", para no cancelar con un toque sin querer
   const [porCancelar, setPorCancelar] = useState<string | null>(null);
+  // La reserva cuyo correo de confirmación se está mirando
+  const [correoDe, setCorreoDe] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
@@ -69,20 +72,27 @@ export function MisReservas() {
                   </Boton>
                 </div>
               ) : (
-                <Boton
-                  variante="peligro"
-                  onClick={() => {
-                    cancelar.reset();
-                    setPorCancelar(reserva.id);
-                  }}
-                >
-                  Cancelar
-                </Boton>
+                <div className="flex items-center gap-2">
+                  <Boton variante="secundario" onClick={() => setCorreoDe(reserva.id)}>
+                    Ver correo
+                  </Boton>
+                  <Boton
+                    variante="peligro"
+                    onClick={() => {
+                      cancelar.reset();
+                      setPorCancelar(reserva.id);
+                    }}
+                  >
+                    Cancelar
+                  </Boton>
+                </div>
               )}
             </li>
           ))}
         </ul>
       )}
+
+      {correoDe && <VistaDelCorreo reservaId={correoDe} onCerrar={() => setCorreoDe(null)} />}
     </div>
   );
 }

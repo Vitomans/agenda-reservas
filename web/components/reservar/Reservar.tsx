@@ -11,6 +11,7 @@ import type { Reserva } from "@/lib/tipos";
 import { Aviso, Cargando } from "../Aviso";
 import { Boton } from "../Boton";
 import { EnVivo } from "../EnVivo";
+import { VistaDelCorreo } from "../VistaDelCorreo";
 import { AvisoDeCambios } from "./AvisoDeCambios";
 import { GrillaDeHorarios, Leyenda } from "./GrillaDeHorarios";
 import { SelectorDeCancha } from "./SelectorDeCancha";
@@ -26,6 +27,7 @@ export function Reservar() {
   const [diaElegido, setDiaElegido] = useState<string | null>(null);
   const [inicioElegido, setInicioElegido] = useState<string | null>(null);
   const [reservaHecha, setReservaHecha] = useState<Reserva | null>(null);
+  const [viendoCorreo, setViendoCorreo] = useState(false);
 
   // Si no se eligió nada (o lo elegido ya no está, por ejemplo al cambiar el día a medianoche),
   // se usa la primera cancha y el día de hoy
@@ -116,9 +118,14 @@ export function Reservar() {
           {describirHorario(reservaHecha.inicio, reservaHecha.fin, zonaHoraria)} ({formatearPesos(reservaHecha.precio)}).{" "}
           <Link href="/mis-reservas" className="font-medium underline">
             Ver mis reservas
-          </Link>
+          </Link>{" "}
+          ·{" "}
+          <button type="button" onClick={() => setViendoCorreo(true)} className="font-medium underline">
+            Ver el correo de confirmación
+          </button>
         </Aviso>
       )}
+      {reservaHecha && viendoCorreo && <VistaDelCorreo reservaId={reservaHecha.id} onCerrar={() => setViendoCorreo(false)} />}
       {reservar.error && <Aviso>{reservar.error.message}</Aviso>}
       {bloqueTomado && !reservar.error && (
         <Aviso>Otra persona acaba de reservar las {bloqueTomado.hora}. Elige otro horario.</Aviso>
