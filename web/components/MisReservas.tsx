@@ -21,7 +21,7 @@ export function MisReservas() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Mis reservas</h1>
+        <h1 className="font-display text-4xl font-bold uppercase italic">Mis reservas</h1>
         <p className="mt-1 text-sm text-slate-600">Tus próximas horas. Puedes cancelar hasta que empiece la hora.</p>
       </div>
 

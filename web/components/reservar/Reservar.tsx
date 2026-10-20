@@ -18,12 +18,12 @@ import { describirHorario, diaLargo } from "@/lib/fechas";
 import { useTiempoReal } from "@/lib/tiempoReal";
 import type { Reserva } from "@/lib/tipos";
 import { Aviso, Cargando } from "../Aviso";
-import { EnVivo } from "../EnVivo";
 import { VistaDelCorreo } from "../VistaDelCorreo";
 import { AvisoDeCambios } from "./AvisoDeCambios";
 import { BarraParaReservar } from "./BarraParaReservar";
 import { GrillaDeHorarios, Leyenda } from "./GrillaDeHorarios";
 import { GrillaPorHora } from "./GrillaPorHora";
+import { Portada } from "./Portada";
 import { SelectorDeCancha } from "./SelectorDeCancha";
 import { SelectorDeVista, type Vista } from "./SelectorDeVista";
 import { TiraDeDias } from "./TiraDeDias";
@@ -83,7 +83,7 @@ export function Reservar() {
     return <Aviso>Por ahora no hay canchas disponibles.</Aviso>;
   }
 
-  const { zonaHoraria, tarifa } = horario.data;
+  const { zonaHoraria } = horario.data;
 
   // Las horas que ya pasaron no se muestran: en la tarde ocupaban media grilla. Solo se dice desde cuándo se puede reservar.
   const bloquesQueVienen = porCancha.data?.filter((bloque) => bloque.estado !== "pasado") ?? [];
@@ -131,17 +131,7 @@ export function Reservar() {
     <div className="space-y-6">
       <AvisoDeCambios cambios={cambios} />
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Reservar cancha</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Elige el día, la cancha y la hora. Cada reserva dura 1 hora y cuesta {formatearPesos(tarifa.precioNormal)}, o{" "}
-            {formatearPesos(tarifa.precioPunta)} en hora punta (de lunes a viernes desde las {tarifa.inicioPuntaEntreSemana}
-            :00, y todo el fin de semana).
-          </p>
-        </div>
-        <EnVivo conectado={enVivo} />
-      </div>
+      <Portada horario={horario.data} canchas={recursos.data.length} enVivo={enVivo} />
 
       <div className="space-y-3">
         <SelectorDeVista

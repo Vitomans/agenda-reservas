@@ -2,7 +2,10 @@
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
+  /* Para los títulos y el logo (ver app/layout.tsx) */
+  --font-display: var(--font-barlow-condensed);
 }
+
 
 /* Animaciones de los cambios en vivo (ver lib/cambios.ts) */
 @theme {
@@ -32,6 +35,14 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+}
+
+/* Las horas ocupadas llevan rayas finas, como una red, para que se distingan sin depender solo del color */
+@layer components {
+  .fondo-ocupado {
+    background-color: var(--color-slate-100);
+    background-image: repeating-linear-gradient(135deg, transparent 0 7px, var(--color-slate-200) 7px 8px);
   }
 }
 

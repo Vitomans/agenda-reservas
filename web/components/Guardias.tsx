@@ -6,6 +6,7 @@ import { paginaDeInicio, useSesion } from "@/lib/consultas";
 import type { Rol, Usuario } from "@/lib/tipos";
 import { Aviso, Cargando } from "./Aviso";
 import { Encabezado } from "./Encabezado";
+import { PieDePagina } from "./PieDePagina";
 
 // Los "guardias" deciden quién puede ver cada página.
 // La seguridad de verdad está en la API (401 y 403); esto solo lleva a cada uno a su lugar.
@@ -62,6 +63,7 @@ function ConEncabezado({ usuario, children }: { usuario: Usuario | null; childre
     <>
       <Encabezado usuario={usuario} />
       <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:py-8">{children}</main>
+      <PieDePagina />
     </>
   );
 }

@@ -13,7 +13,7 @@ export const ESTADOS: Record<EstadoBloque, { texto: string; clases: string }> = 
   },
   ocupado: {
     texto: "Ocupado",
-    clases: "border-slate-200 bg-slate-100 text-slate-400",
+    clases: "border-slate-200 fondo-ocupado text-slate-400",
   },
   pasado: {
     texto: "Ya pasó",
@@ -72,7 +72,7 @@ export function Leyenda() {
   const muestras: { estado: EstadoBloque; clases: string }[] = [
     { estado: "libre", clases: "border-slate-300 bg-white" },
     { estado: "mio", clases: "border-blue-700 bg-blue-700" },
-    { estado: "ocupado", clases: "border-slate-200 bg-slate-100" },
+    { estado: "ocupado", clases: "border-slate-300 fondo-ocupado" },
   ];
 
   return (
