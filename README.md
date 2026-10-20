@@ -2,7 +2,7 @@
 
 [![Estado del CI](https://github.com/Vitomans/agenda-reservas/actions/workflows/ci.yml/badge.svg)](https://github.com/Vitomans/agenda-reservas/actions/workflows/ci.yml)
 
-Una app de reservas para un club de pádel ficticio. Los jugadores eligen una cancha y un día, ven los horarios libres con su precio y reservan uno. Cuando alguien reserva, el horario aparece ocupado al instante en la pantalla de todos los demás, sin recargar la página. Los administradores ven el club de un vistazo (un tablero con todas las canchas, la ocupación, los ingresos y la hora más pedida) y manejan todas las reservas.
+Una app de reservas para un club de pádel ficticio. Los jugadores eligen una cancha y un día, ven los horarios libres con su precio y reservan uno, y les llega un correo de confirmación. Cuando alguien reserva, el horario aparece ocupado al instante en la pantalla de todos los demás, sin recargar la página. Los administradores ven el club de un vistazo (un tablero con todas las canchas, la ocupación, los ingresos y la hora más pedida) y manejan todas las reservas.
 
 **Demo en vivo: [volea-reservas.vercel.app](https://volea-reservas.vercel.app)**. Entra con **Jugador demo** (una cuenta nueva solo para ti) o **Admin demo**. El club tiene **socios simulados**: mientras miras una cancha, reservan y cancelan horas, así que vas a ver cambiar la grilla sola. También puedes abrir la demo en dos pantallas, por ejemplo en el celular y en el computador, y reservar tú.
 
@@ -18,6 +18,7 @@ Una app de reservas para un club de pádel ficticio. Los jugadores eligen una ca
 - **Seguridad:** helmet, CORS y límite de intentos en el login
 - **Validación:** Zod
 - **Tiempo real:** Socket.io
+- **Correos:** API de Brevo, con el evento para el calendario (.ics) adjunto
 - **Fechas y zonas horarias:** Luxon
 - **Web:** Next.js 16 (App Router), React 19, Tailwind CSS 4 y TanStack Query
 - **Tests:** Vitest, Supertest y Testing Library
@@ -92,6 +93,8 @@ npm run dev
 
 Abre [http://localhost:3000](http://localhost:3000) y usa los botones **Jugador demo** o **Admin demo**. La API corre en [http://localhost:4000](http://localhost:4000).
 
+En local los correos no se envían: la API los anota en su consola. Para enviarlos de verdad, pon una clave de Brevo en `BREVO_API_KEY` y un remitente confirmado en `CORREO_REMITENTE` (ver `api/.env.example`).
+
 La web le pasa a la API cada petición a `/api/...` (rewrites de Next.js). Para el navegador, la API está en el mismo sitio que la página, así que la cookie de sesión es propia (first-party) y no hay que lidiar con CORS. La conexión en tiempo real es la excepción: los rewrites no pueden mantener una conexión abierta, así que Socket.io se conecta directo a la API. Si la API corre en otro lugar, pon `NEXT_PUBLIC_API_URL` en `web/.env.local`.
 
 ### Usuarios de prueba
@@ -119,6 +122,7 @@ El seed también crea 12 **socios simulados** (`socio-01@socios.example.com` a `
 | GET | `/api/recursos/:id/disponibilidad?fecha=YYYY-MM-DD` | con sesión | Los horarios de un día: libre, ocupado, mío o pasado |
 | POST | `/api/reservas` | jugador | Reserva un horario (`201`, o `409` si ya está ocupado) |
 | GET | `/api/reservas/mias` | jugador | Mis próximas reservas |
+| GET | `/api/reservas/:id/correo` | dueño o admin | El correo de confirmación de una reserva, para mostrarlo en la página |
 | DELETE | `/api/reservas/:id` | dueño o admin | Cancela una reserva |
 | GET | `/api/admin/reservas?fecha=YYYY-MM-DD` | admin | Todas las reservas de un día, de cualquier fecha |
 | GET | `/api/admin/resumen?fecha=YYYY-MM-DD` | admin | La ocupación, las reservas y los ingresos del día y de su semana, y la hora más pedida de los últimos 30 días |
@@ -159,9 +163,11 @@ Todo está en planes gratis:
 | Web (Next.js) | **Vercel** | Publica Next.js sin configurar nada, y cada push a `main` se publica solo. |
 | API (Express + Socket.io) | **Render** | Socket.io necesita un servidor siempre encendido que mantenga las conexiones abiertas. Vercel corre funciones que se encienden, responden y se apagan, así que no sirve para la API. |
 | Base de datos | **Neon** (PostgreSQL 17) | Se duerme sin uso, pero despierta sola en cuanto llega una consulta. Supabase pausa la base de datos después de 7 días sin actividad, y la PostgreSQL gratis de Render se borra a los 30 días. |
+| Correos | **Brevo** | Envía hasta 300 correos al día gratis, sin tener un dominio propio. |
 | Despertador | **UptimeRobot** | Render apaga la API después de 15 minutos sin visitas. UptimeRobot visita `/api/salud` cada 5 minutos para que no se duerma, y avisa por correo si la demo se cae. |
 
 - **La configuración de Render está en el repo** (`render.yaml`), no solo en el panel de Render: cómo compilar, cómo arrancar, la región y las variables que hacen falta. Los secretos no van en el archivo. `DATABASE_URL` se escribe a mano en Render, y Render genera `JWT_SECRET`.
+- **Los correos necesitan dos cosas en Render:** la clave `BREVO_API_KEY` (se escribe a mano) y el remitente `CORREO_REMITENTE`, que tiene que estar confirmado en Brevo. Sin la clave, la API funciona igual y los correos solo se anotan en su consola.
 - **Las migraciones y el seed corren al final del build**, porque el plan gratis de Render no tiene "pre-deploy command". El seed se puede correr muchas veces sin duplicar nada (usa `upsert`).
 - **Render publica solo si el CI pasó** (`autoDeployTrigger: checksPass`).
 - **Las cuentas cuadran:** Render da 750 horas gratis al mes, y un mes tiene como máximo 744, así que alcanza para tener la API encendida siempre. `/api/salud` no consulta la base de datos, así que las visitas del despertador no despiertan a Neon y no gastan sus horas gratis de cómputo.
@@ -182,6 +188,12 @@ Todo está en planes gratis:
 
 **La base de datos hace las cuentas del panel.** Los ingresos y las reservas se suman con `aggregate` de Prisma, y la hora más pedida se calcula con un `GROUP BY` en SQL. Así PostgreSQL agrupa y cuenta, y la API recibe solo el resultado, no cientos de reservas. Ojo con la zona horaria: `inicio` está guardado en UTC, así que antes de sacar la hora hay que pasarlo a la hora de Chile. Si no, las 19:00 de Chile aparecerían como las 22:00 o 23:00, y un test lo comprueba.
 
+**Los correos no frenan las reservas.** La API responde primero y envía el correo después. Si Brevo tarda o falla, el jugador no espera, la reserva queda hecha igual y el error queda en el log del servidor. Igual que el avisador del tiempo real, el "cartero" que envía los correos se le pasa a la app desde afuera: en la demo publicada es el de Brevo, en local (sin clave) solo anota los correos en la consola y en los tests es uno falso que guarda lo que le pidieron enviar. Así los tests prueban qué correo se manda a quién sin enviar nada de verdad.
+
+**Los correos solo van a direcciones reales, y con límite.** Los jugadores demo, los socios y los usuarios de los tests usan direcciones de `example.com`, un dominio reservado que no existe, así que a ellos no se les envía nada. Además, una misma dirección recibe como mucho 10 correos al día: si alguien se registra con el correo de otra persona y reserva y cancela muchas veces, no puede llenarle la bandeja.
+
+**El HTML de los correos se trata con cuidado.** El nombre del jugador y el de la cancha los escriben los usuarios, así que se "escapan" antes de ponerlos en el HTML: si alguien se registra con el nombre `<script>`, el correo muestra ese texto en vez de tomarlo como código (un test lo comprueba). En la página, la vista previa del correo va dentro de un `iframe` con `sandbox` y sin `allow-scripts`, así ese HTML no puede ejecutar nada ni tocar la página. Solo puede abrir sus links, como el de Google Calendar, en otra pestaña.
+
 **Las horas se guardan en UTC y se muestran en la hora del club.** Los días y los horarios se calculan en `America/Santiago` con Luxon. El servidor también decide qué día es "hoy" (`GET /api/horario`), así un reloj o una zona horaria mal configurados en el dispositivo del visitante no pueden cambiar las reglas de las reservas.
 
 **Los eventos en tiempo real son solo una señal.** Un evento dice qué cancha y qué horario cambiaron, y nada más: ni nombres ni emails, así que el socket no necesita sesión. La página marca esos datos como desactualizados y TanStack Query los vuelve a pedir a la API REST, que sigue siendo la única fuente de verdad. No hay una segunda copia del estado que mantener sincronizada, y si se pierde un evento, se arregla volviendo a pedir todo al reconectarse.
@@ -200,8 +212,8 @@ Todo está en planes gratis:
 
 ## Tests y CI
 
-- **API:** 76 tests con Vitest y Supertest: sesión, jugadores invitados, límite de intentos detrás de un proxy, reglas de las reservas (incluido dos personas reservando el mismo horario), roles y permisos, eventos en tiempo real con clientes de Socket.io de verdad y los socios simulados (que nunca cancelan la reserva de un jugador y que no hacen nada si nadie mira), los precios y el resumen del panel de admin.
-- **Web:** 42 tests con Vitest y Testing Library: el cliente de la API, las funciones de fechas y de pesos, la grilla de horarios con sus precios, el tablero y las tarjetas del panel de admin, el formulario de login, el aviso de carga lenta, el hook de tiempo real (también con la pestaña escondida) y los avisos de lo que cambió en vivo.
+- **API:** 91 tests con Vitest y Supertest: sesión, jugadores invitados, límite de intentos detrás de un proxy, reglas de las reservas (incluido dos personas reservando el mismo horario), roles y permisos, eventos en tiempo real con clientes de Socket.io de verdad y los socios simulados (que nunca cancelan la reserva de un jugador y que no hacen nada si nadie mira), los precios, el resumen del panel de admin y los correos (qué se envía a quién, el HTML escapado, el envío a Brevo con un `fetch` falso y el límite diario).
+- **Web:** 45 tests con Vitest y Testing Library: el cliente de la API, las funciones de fechas y de pesos, la grilla de horarios con sus precios, el tablero y las tarjetas del panel de admin, la vista previa del correo, el formulario de login, el aviso de carga lenta, el hook de tiempo real (también con la pestaña escondida) y los avisos de lo que cambió en vivo.
 - **CI:** GitHub Actions corre lint, tipos, tests y build de los dos proyectos en cada push. El trabajo de la API levanta su propio PostgreSQL.
 
 ## Limitaciones conocidas
@@ -211,6 +223,8 @@ Todo está en planes gratis:
 - La API usa planes gratis: si el despertador fallara, la primera visita tardaría hasta un minuto.
 - No hay refresh tokens: la sesión dura 1 día y después hay que volver a iniciar sesión.
 - "Mis reservas" no se actualiza en vivo. Se actualiza al volver a la pestaña. Para enviarle cambios haría falta una sala privada por usuario, revisando la sesión en el socket.
+- El límite de 10 correos al día por dirección vive en la memoria de la API: si se reinicia, la cuenta empieza de cero.
+- Los correos salen desde una dirección de Gmail confirmada en Brevo, no desde un dominio propio. Algunos programas de correo los pueden mandar a spam; con un dominio propio y sus registros SPF y DKIM eso mejora.
 - La actividad de los socios es simulada: la demo lo dice en la pantalla de entrada, y sus cuentas usan el dominio `socios.example.com`.
 - El límite de intentos del login, las salas de Socket.io y el simulador del club viven en la memoria de un solo proceso de la API. Para correr varias copias de la API haría falta un almacenamiento compartido, como Redis, y que el simulador corra en una sola de ellas.
 
