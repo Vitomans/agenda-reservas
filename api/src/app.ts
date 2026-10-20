@@ -2,8 +2,10 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import swaggerUi from "swagger-ui-express";
 import { type Cartero, sinCorreos } from "./cartero.ts";
 import { config } from "./config.ts";
+import { documentacion } from "./documentacion.ts";
 import { manejarErrores, rutaNoEncontrada } from "./middlewares/errores.ts";
 import { crearRutasAdmin } from "./rutas/admin.ts";
 import { crearRutasAuth } from "./rutas/auth.ts";
@@ -38,6 +40,19 @@ export function crearApp({
   app.get("/api/salud", (_req, res) => {
     res.json({ estado: "ok" });
   });
+
+  // La documentación de la API: una página para leer y probar cada ruta (Swagger UI) y el archivo OpenAPI
+  app.get("/docs/openapi.json", (_req, res) => {
+    res.json(documentacion);
+  });
+  app.use(
+    "/docs",
+    swaggerUi.serve,
+    swaggerUi.setup(documentacion, {
+      customSiteTitle: "Documentación de la API · Volea",
+      customCss: ".swagger-ui .topbar { display: none }",
+    }),
+  );
 
   app.use("/api/auth", crearRutasAuth());
   app.use("/api/horario", crearRutasHorario());
