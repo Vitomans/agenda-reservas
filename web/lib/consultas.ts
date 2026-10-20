@@ -1,8 +1,9 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ErrorApi, pedirApi } from "./api";
+import { pedirApi } from "./api";
 import type {
   Bloque,
   Horario,
+  HoraDelClub,
   Recurso,
   RecursoAdmin,
   Reserva,
@@ -23,6 +24,7 @@ export const claves = {
   horario: ["horario"],
   recursos: ["recursos"],
   disponibilidad: ["disponibilidad"],
+  disponibilidadDelClub: ["disponibilidad", "club"],
   misReservas: ["mis-reservas"],
   correo: ["correo"],
   reservasDelDia: ["admin", "reservas"],
@@ -37,18 +39,11 @@ export function paginaDeInicio(rol: Rol) {
 
 // ---------- Consultas (leer datos) ----------
 
-// El usuario que tiene la sesión iniciada, o null si nadie entró
+// El usuario que tiene la sesión iniciada, o null si nadie entró (la API responde usuario: null)
 export function useSesion() {
   return useQuery({
     queryKey: claves.sesion,
-    queryFn: async () => {
-      try {
-        return (await pedirApi<{ usuario: Usuario }>("/auth/yo")).usuario;
-      } catch (error) {
-        if (error instanceof ErrorApi && error.status === 401) return null;
-        throw error;
-      }
-    },
+    queryFn: async () => (await pedirApi<{ usuario: Usuario | null }>("/auth/yo")).usuario,
     // Solo cambia al entrar o salir, y eso se avisa a mano (setQueryData)
     staleTime: Infinity,
   });
@@ -75,6 +70,16 @@ export function useDisponibilidad(recursoId: string | undefined, fecha: string |
       (await pedirApi<{ bloques: Bloque[] }>(`/recursos/${recursoId}/disponibilidad?fecha=${fecha}`)).bloques,
     // No se pide hasta saber qué cancha y qué día mirar
     enabled: Boolean(recursoId && fecha),
+  });
+}
+
+// Todo el club en un día, hora por hora: la vista "¿A qué hora quieres jugar?".
+// Su clave empieza igual que la de las grillas, así se marca como vieja junto con ellas al reservar o cancelar.
+export function useDisponibilidadDelClub(fecha: string | undefined) {
+  return useQuery({
+    queryKey: [...claves.disponibilidadDelClub, fecha],
+    queryFn: async () => (await pedirApi<{ horas: HoraDelClub[] }>(`/disponibilidad?fecha=${fecha}`)).horas,
+    enabled: Boolean(fecha),
   });
 }
 

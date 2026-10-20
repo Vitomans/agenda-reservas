@@ -1,8 +1,8 @@
 import { formatearPesos } from "@/lib/dinero";
 import type { Bloque, EstadoBloque } from "@/lib/tipos";
 
-// Cómo se ve cada estado. Solo los bloques libres se pueden elegir.
-const ESTADOS: Record<EstadoBloque, { texto: string; clases: string }> = {
+// Cómo se ve cada estado. Solo los bloques libres se pueden elegir. La grilla por hora usa los mismos colores.
+export const ESTADOS: Record<EstadoBloque, { texto: string; clases: string }> = {
   libre: {
     texto: "Libre",
     clases: "border-slate-200 bg-white text-slate-900 hover:border-blue-600 hover:bg-blue-50",
@@ -21,6 +21,13 @@ const ESTADOS: Record<EstadoBloque, { texto: string; clases: string }> = {
   },
 };
 
+// La hora elegida, y la que otra persona acaba de cambiar: un destello si se mueve la pantalla,
+// y si la persona pidió menos animaciones, un borde quieto
+export const CLASES_ELEGIDO = "border-lime-500 bg-lime-100 text-slate-900 ring-2 ring-lime-400";
+export const CLASES_RESALTADO = "motion-safe:animate-destello motion-reduce:ring-2 motion-reduce:ring-lime-400";
+export const CLASES_BOTON_DE_HORA =
+  "flex w-full flex-col items-center rounded-xl border px-2 py-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-default";
+
 type Props = {
   bloques: Bloque[];
   elegido: string | null; // el "inicio" del bloque elegido
@@ -38,10 +45,7 @@ export function GrillaDeHorarios({ bloques, elegido, onElegir, resaltados = [] }
         const texto = estaElegido ? "Elegido" : estado.texto;
         // En las horas libres se muestra el precio en vez de la palabra "Libre"
         const precio = bloque.estado === "libre" ? formatearPesos(bloque.precio) : null;
-        // Un destello si se mueve la pantalla; si la persona pidió menos animaciones, un borde quieto
-        const resaltado = resaltados.includes(bloque.inicio)
-          ? "motion-safe:animate-destello motion-reduce:ring-2 motion-reduce:ring-lime-400"
-          : "";
+        const resaltado = resaltados.includes(bloque.inicio) ? CLASES_RESALTADO : "";
 
         return (
           <li key={bloque.inicio}>
@@ -52,9 +56,7 @@ export function GrillaDeHorarios({ bloques, elegido, onElegir, resaltados = [] }
               // Así un lector de pantalla dice "09:00, Libre, $12.000" y no junta los textos
               aria-label={[bloque.hora, texto, precio].filter(Boolean).join(", ")}
               onClick={() => onElegir(bloque)}
-              className={`flex w-full flex-col items-center rounded-xl border px-2 py-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-default ${
-                estaElegido ? "border-lime-500 bg-lime-100 text-slate-900 ring-2 ring-lime-400" : estado.clases
-              } ${resaltado}`}
+              className={`${CLASES_BOTON_DE_HORA} ${estaElegido ? CLASES_ELEGIDO : estado.clases} ${resaltado}`}
             >
               <span className="text-base font-semibold tabular-nums">{bloque.hora}</span>
               <span className="text-xs tabular-nums">{estaElegido || !precio ? texto : precio}</span>

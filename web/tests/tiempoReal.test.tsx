@@ -112,6 +112,16 @@ describe("useTiempoReal", () => {
     expect(queryClient.getQueryState(grillaCancha2)?.isInvalidated).toBe(false);
   });
 
+  it("cualquier aviso marca como vieja la vista del club por hora, que muestra todas las canchas", () => {
+    const { queryClient } = usarTiempoReal(["cancha-1", "cancha-2"]);
+    const club = [...claves.disponibilidadDelClub, "2026-10-13"];
+    queryClient.setQueryData(club, []);
+
+    act(() => conexion.disparar("reserva:cancelada", { recursoId: "cancha-2", inicio: "2026-10-13T13:00:00.000Z" }));
+
+    expect(queryClient.getQueryState(club)?.isInvalidated).toBe(true);
+  });
+
   it("al volver la conexión pide todo de nuevo, por si se perdió algún aviso", () => {
     const { queryClient } = usarTiempoReal(["cancha-1"]);
     queryClient.setQueryData(grillaCancha1, []);

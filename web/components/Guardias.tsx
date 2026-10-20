@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { paginaDeInicio, useSesion } from "@/lib/consultas";
-import type { Rol } from "@/lib/tipos";
+import type { Rol, Usuario } from "@/lib/tipos";
 import { Aviso, Cargando } from "./Aviso";
 import { Encabezado } from "./Encabezado";
 
@@ -24,22 +24,53 @@ export function ZonaPrivada({ rol, children }: { rol: Rol; children: React.React
   }, [usuario, rol, router]);
 
   if (isError) {
-    return (
-      <main className="mx-auto max-w-md px-4 py-16">
-        <Aviso>No se pudo conectar con el servidor. Intenta de nuevo en un momento.</Aviso>
-      </main>
-    );
+    return <SinConexion />;
   }
 
   if (!usuario || usuario.rol !== rol) {
     return <Cargando />;
   }
 
+  return <ConEncabezado usuario={usuario}>{children}</ConEncabezado>;
+}
+
+// Para las páginas que también se ven sin entrar (reservar). Un visitante las ve con un botón para entrar,
+// y un admin va a su panel, porque los admins no reservan.
+export function ZonaAbierta({ children }: { children: React.ReactNode }) {
+  const { data: usuario, isPending, isError } = useSesion();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (usuario?.rol === "ADMIN") {
+      router.replace(paginaDeInicio(usuario.rol));
+    }
+  }, [usuario, router]);
+
+  if (isError) {
+    return <SinConexion />;
+  }
+
+  if (isPending || usuario?.rol === "ADMIN") {
+    return <Cargando />;
+  }
+
+  return <ConEncabezado usuario={usuario}>{children}</ConEncabezado>;
+}
+
+function ConEncabezado({ usuario, children }: { usuario: Usuario | null; children: React.ReactNode }) {
   return (
     <>
       <Encabezado usuario={usuario} />
       <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:py-8">{children}</main>
     </>
+  );
+}
+
+function SinConexion() {
+  return (
+    <main className="mx-auto max-w-md px-4 py-16">
+      <Aviso>No se pudo conectar con el servidor. Intenta de nuevo en un momento.</Aviso>
+    </main>
   );
 }
 

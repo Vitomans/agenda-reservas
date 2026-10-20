@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SoloSinSesion } from "../Guardias";
 import { Logo } from "../Logo";
 
@@ -17,9 +18,10 @@ export function PantallaDeAcceso({
     <SoloSinSesion>
       <main className="flex min-h-dvh items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm">
-          <div className="mb-8 flex justify-center text-2xl">
+          {/* Los horarios se ven sin entrar: el logo lleva a ellos */}
+          <Link href="/" aria-label="Volea, ver los horarios" className="mb-8 flex justify-center text-2xl">
             <Logo />
-          </div>
+          </Link>
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <h1 className="text-xl font-semibold">{titulo}</h1>
             <p className="mt-1 text-sm text-slate-600">{subtitulo}</p>

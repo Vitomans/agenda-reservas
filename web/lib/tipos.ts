@@ -37,6 +37,15 @@ export type Bloque = {
   precio: number; // en pesos chilenos
 };
 
+// Una hora del club con el estado de cada cancha a esa hora (la vista "¿A qué hora quieres jugar?")
+export type HoraDelClub = {
+  inicio: string;
+  fin: string;
+  hora: string; // por ejemplo "19:00", en la hora del club
+  precio: number; // en pesos chilenos, igual para todas las canchas
+  canchas: (Recurso & { estado: EstadoBloque })[];
+};
+
 export type Reserva = {
   id: string;
   inicio: string;

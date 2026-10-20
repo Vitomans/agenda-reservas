@@ -38,11 +38,13 @@ export function useTiempoReal(recursoIds: string[]) {
     const alConectar = () => setConectado(true);
     const alDesconectar = () => setConectado(false);
 
-    // Marca como viejos los datos de las reservas: los de una cancha, o los de todas si no se dice cuál
+    // Marca como viejos los datos de las reservas: los de una cancha, o los de todas si no se dice cuál.
+    // La vista del club por hora muestra todas las canchas, así que siempre se pone al día.
     function ponerAlDia(recursoId?: string) {
       queryClient.invalidateQueries({
         queryKey: recursoId ? [...claves.disponibilidad, recursoId] : claves.disponibilidad,
       });
+      queryClient.invalidateQueries({ queryKey: claves.disponibilidadDelClub });
       queryClient.invalidateQueries({ queryKey: claves.misReservas });
       queryClient.invalidateQueries({ queryKey: claves.reservasDelDia });
       queryClient.invalidateQueries({ queryKey: claves.resumen });
