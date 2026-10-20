@@ -180,7 +180,7 @@ describe("POST /api/auth/invitado", () => {
     const viejo = (await request(app).post("/api/auth/invitado")).body.usuario;
     const cancha = await crearCanchaDePrueba();
     await db.reserva.create({
-      data: { recursoId: cancha.id, usuarioId: viejo.id, inicio: bloque(1, 10), fin: bloque(1, 11) },
+      data: { recursoId: cancha.id, usuarioId: viejo.id, inicio: bloque(1, 10), fin: bloque(1, 11), precio: 12_000 },
     });
     await db.usuario.update({ where: { id: viejo.id }, data: { creadoEn: haceDosDias } });
 

@@ -8,6 +8,7 @@ import {
   esInicioDeBloque,
   limitesDelDia,
 } from "./horario.ts";
+import { precioDelBloque } from "./precios.ts";
 import type { UsuarioSesion } from "./sesion.ts";
 
 // Reglas de negocio de las reservas. Las rutas solo leen el pedido y llaman a estas funciones.
@@ -25,6 +26,7 @@ const DATOS_RESERVA = {
   inicio: true,
   fin: true,
   estado: true,
+  precio: true,
   recurso: { select: { id: true, nombre: true } },
 } as const;
 
@@ -41,7 +43,7 @@ function revisarQueElDiaSeaReservable(fecha: string) {
   }
 }
 
-// La grilla de un día: cada bloque con su estado para el usuario que la pide
+// La grilla de un día: cada bloque con su estado para el usuario que la pide y su precio
 export async function disponibilidadDelDia(recursoId: string, fecha: string, usuarioId: string) {
   await revisarQueLaCanchaExista(recursoId);
   revisarQueElDiaSeaReservable(fecha);
@@ -68,7 +70,7 @@ export async function disponibilidadDelDia(recursoId: string, fecha: string, usu
       estado = reserva.usuarioId === usuarioId ? "mio" : "ocupado";
     }
 
-    return { ...bloque, estado };
+    return { ...bloque, estado, precio: precioDelBloque(bloque.inicio) };
   });
 }
 
@@ -101,7 +103,13 @@ export async function crearReserva(usuarioId: string, recursoId: string, inicio:
       }
 
       return tx.reserva.create({
-        data: { usuarioId, recursoId, inicio, fin: new Date(inicio.getTime() + UNA_HORA_MS) },
+        data: {
+          usuarioId,
+          recursoId,
+          inicio,
+          fin: new Date(inicio.getTime() + UNA_HORA_MS),
+          precio: precioDelBloque(inicio), // el precio de hoy queda guardado en la reserva
+        },
         select: DATOS_RESERVA,
       });
     });

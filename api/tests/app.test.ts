@@ -34,7 +34,7 @@ describe("pedidos con un JSON mal escrito", () => {
 });
 
 describe("GET /api/horario", () => {
-  it("dice la zona horaria del club y los 7 días que se pueden reservar, desde hoy", async () => {
+  it("dice la zona horaria del club, los 7 días que se pueden reservar desde hoy y las tarifas", async () => {
     const respuesta = await request(crearApp()).get("/api/horario");
 
     expect(respuesta.status).toBe(200);
@@ -43,6 +43,7 @@ describe("GET /api/horario", () => {
       horaApertura: 8,
       horaCierre: 23,
       dias: [0, 1, 2, 3, 4, 5, 6].map((n) => dia(n)),
+      tarifa: { precioNormal: 12_000, precioPunta: 16_000, inicioPuntaEntreSemana: 18 },
     });
   });
 });

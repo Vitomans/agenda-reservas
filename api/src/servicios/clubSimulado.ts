@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 import { db, esErrorDePrisma } from "../db.ts";
 import type { Avisador } from "../tiempoReal.ts";
 import { bloquesDelDia, diaEnElClub, diasReservables, limitesDelDia, ZONA_HORARIA } from "./horario.ts";
+import { precioDelBloque } from "./precios.ts";
 
 // "Socios simulados": jugadores de mentira que le dan vida a la demo.
 // 1. rellenarDias() llena cada día de la semana con reservas de socios, más en la tarde y la noche,
@@ -119,7 +120,13 @@ export async function rellenarDias({ dias = diasReservables(), recursoIds }: { d
         if (azarFijo(clave) >= probabilidadDeOcupacion(dia, hora, diasDesdeHoy)) continue;
 
         const socio = socios[Math.floor(azarFijo(`${clave}|socio`) * socios.length)];
-        nuevas.push({ recursoId: cancha.id, usuarioId: socio.id, inicio: bloque.inicio, fin: bloque.fin });
+        nuevas.push({
+          recursoId: cancha.id,
+          usuarioId: socio.id,
+          inicio: bloque.inicio,
+          fin: bloque.fin,
+          precio: precioDelBloque(bloque.inicio),
+        });
       }
     }
   }
@@ -180,7 +187,9 @@ export async function moverElClub(
     const bloque = libres[Math.floor(azar() * libres.length)];
     const socio = socios[Math.floor(azar() * socios.length)];
     try {
-      await db.reserva.create({ data: { recursoId, usuarioId: socio.id, inicio: bloque.inicio, fin: bloque.fin } });
+      await db.reserva.create({
+        data: { recursoId, usuarioId: socio.id, inicio: bloque.inicio, fin: bloque.fin, precio: precioDelBloque(bloque.inicio) },
+      });
     } catch (error) {
       // Un jugador la reservó justo en ese momento: el socio se queda sin jugar esta vez
       if (esErrorDePrisma(error, "P2002")) return null;

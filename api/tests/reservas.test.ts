@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { crearApp } from "../src/app.ts";
 import { db } from "../src/db.ts";
 import { HORA_APERTURA, HORA_CIERRE } from "../src/servicios/horario.ts";
+import { precioDelBloque } from "../src/servicios/precios.ts";
 import {
   bloque,
   borrarDatosDePrueba,
@@ -61,6 +62,18 @@ describe("GET /api/recursos/:id/disponibilidad", () => {
     expect(estadoDe("11:00")).toBe("ocupado");
   });
 
+  it("cada bloque trae su precio: normal o de hora punta", async () => {
+    const app = crearApp();
+    const cancha = await crearCanchaDePrueba();
+    const { navegador } = await entrarComoJugadorNuevo(app);
+
+    const respuesta = await navegador.get(`/api/recursos/${cancha.id}/disponibilidad?fecha=${dia(1)}`);
+
+    for (const b of respuesta.body.bloques) {
+      expect(b.precio, b.hora).toBe(precioDelBloque(new Date(b.inicio)));
+    }
+  });
+
   it("marca como pasados los bloques de hoy que ya empezaron", async () => {
     const app = crearApp();
     const cancha = await crearCanchaDePrueba();
@@ -112,8 +125,20 @@ describe("POST /api/reservas", () => {
       inicio: bloque(1, 10),
       fin: bloque(1, 11),
       estado: "CONFIRMADA",
+      precio: precioDelBloque(new Date(bloque(1, 10))),
       recurso: { id: cancha.id, nombre: cancha.nombre },
     });
+  });
+
+  it("guarda el precio en la reserva", async () => {
+    const app = crearApp();
+    const cancha = await crearCanchaDePrueba();
+    const { navegador } = await entrarComoJugadorNuevo(app);
+
+    const respuesta = await navegador.post("/api/reservas").send({ recursoId: cancha.id, inicio: bloque(1, 19) });
+
+    const guardada = await db.reserva.findUniqueOrThrow({ where: { id: respuesta.body.reserva.id } });
+    expect(guardada.precio).toBe(precioDelBloque(new Date(bloque(1, 19))));
   });
 
   it("responde 401 si no hay sesión", async () => {
@@ -289,7 +314,7 @@ describe("DELETE /api/reservas/:id", () => {
     const { navegador, usuario } = await entrarComoJugadorNuevo(app);
     // Se crea directo en la base de datos, porque por la API no se puede reservar en el pasado
     const pasada = await db.reserva.create({
-      data: { recursoId: cancha.id, usuarioId: usuario.id, inicio: bloque(-1, 10), fin: bloque(-1, 11) },
+      data: { recursoId: cancha.id, usuarioId: usuario.id, inicio: bloque(-1, 10), fin: bloque(-1, 11), precio: 12_000 },
     });
 
     const respuesta = await navegador.delete(`/api/reservas/${pasada.id}`);

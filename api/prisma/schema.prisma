@@ -50,6 +50,9 @@ model Reserva {
   inicio    DateTime
   fin       DateTime
   estado    EstadoReserva @default(CONFIRMADA)
+  // Lo que costó, en pesos chilenos. Se guarda al reservar: si el club cambia sus tarifas,
+  // las reservas que ya existían mantienen su precio (y los ingresos del pasado no cambian).
+  precio    Int
   creadoEn  DateTime      @default(now())
 
   // Una cancha no puede tener dos reservas confirmadas a la misma hora.

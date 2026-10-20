@@ -124,7 +124,13 @@ describe("moverElClub", () => {
     await navegador.post("/api/reservas").send({ recursoId: cancha.id, inicio: bloque(1, 10) }).expect(201);
     const socio = await db.usuario.findUniqueOrThrow({ where: { email: emailDeSocio(1) } });
     await db.reserva.create({
-      data: { recursoId: cancha.id, usuarioId: socio.id, inicio: new Date(bloque(1, 11)), fin: new Date(bloque(1, 12)) },
+      data: {
+        recursoId: cancha.id,
+        usuarioId: socio.id,
+        inicio: new Date(bloque(1, 11)),
+        fin: new Date(bloque(1, 12)),
+        precio: 12_000,
+      },
     });
     const avisador = avisadorFalso();
 
