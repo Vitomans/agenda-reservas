@@ -4,6 +4,37 @@
   --font-sans: var(--font-geist-sans);
 }
 
+/* Animaciones de los cambios en vivo (ver lib/cambios.ts) */
+@theme {
+  --animate-destello: destello 1.5s ease-out;
+  --animate-entrar: entrar 0.25s ease-out;
+
+  /* La hora que cambió se agranda un poco con un borde lima, y vuelve a la normalidad */
+  @keyframes destello {
+    0%,
+    25% {
+      box-shadow: 0 0 0 4px var(--color-lime-400);
+      transform: scale(1.05);
+    }
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+      transform: scale(1);
+    }
+  }
+
+  /* El aviso baja un poco mientras aparece */
+  @keyframes entrar {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
 @layer base {
   /* Tailwind 4 deja los botones con la flecha normal; acá vuelven a mostrar la "manito" */
   button:not(:disabled) {

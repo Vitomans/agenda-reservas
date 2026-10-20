@@ -45,6 +45,13 @@ describe("GrillaDeHorarios", () => {
     expect(elegido).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("resalta las horas que otra persona acaba de cambiar", () => {
+    render(<GrillaDeHorarios bloques={BLOQUES} elegido={null} onElegir={() => {}} resaltados={[BLOQUES[2].inicio]} />);
+
+    expect(screen.getByRole("button", { name: "10:00, Ocupado" })).toHaveClass("motion-safe:animate-destello");
+    expect(screen.getByRole("button", { name: "09:00, Libre" })).not.toHaveClass("motion-safe:animate-destello");
+  });
+
   it("si otra persona toma la hora elegida, la muestra ocupada", () => {
     render(<GrillaDeHorarios bloques={BLOQUES} elegido={BLOQUES[2].inicio} onElegir={() => {}} />);
 

@@ -87,7 +87,8 @@ export function FormularioLogin() {
           </Boton>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          El jugador demo es una cuenta nueva solo para ti, y se borra al día siguiente.
+          El jugador demo es una cuenta nueva solo para ti, y se borra al día siguiente. En la demo hay socios
+          simulados que reservan y cancelan mientras miras, para que veas cómo se actualiza todo en vivo.
         </p>
       </div>
     </>

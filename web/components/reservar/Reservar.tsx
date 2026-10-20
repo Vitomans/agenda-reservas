@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useCambiosEnVivo } from "@/lib/cambios";
 import { useDisponibilidad, useHorario, useRecursos, useReservar } from "@/lib/consultas";
 import { describirHorario, diaLargo, horaEnElClub } from "@/lib/fechas";
 import { useTiempoReal } from "@/lib/tiempoReal";
@@ -9,6 +10,7 @@ import type { Reserva } from "@/lib/tipos";
 import { Aviso, Cargando } from "../Aviso";
 import { Boton } from "../Boton";
 import { EnVivo } from "../EnVivo";
+import { AvisoDeCambios } from "./AvisoDeCambios";
 import { GrillaDeHorarios, Leyenda } from "./GrillaDeHorarios";
 import { SelectorDeCancha } from "./SelectorDeCancha";
 import { TiraDeDias } from "./TiraDeDias";
@@ -33,6 +35,8 @@ export function Reservar() {
   const disponibilidad = useDisponibilidad(recurso?.id, dia);
   // Si alguien reserva o cancela en esta cancha, la grilla se actualiza sola
   const enVivo = useTiempoReal(recurso ? [recurso.id] : []);
+  // Las horas que otra persona acaba de reservar o liberar en lo que se está mirando
+  const cambios = useCambiosEnVivo(disponibilidad.data, `${recurso?.id}|${dia}`);
   // El bloque elegido, solo si sigue libre (alguien podría haberlo tomado mientras tanto)
   const bloqueElegido = disponibilidad.data?.find((b) => b.inicio === inicioElegido && b.estado === "libre");
   // El bloque elegido, si otra persona lo reservó mientras se decidía
@@ -72,6 +76,8 @@ export function Reservar() {
 
   return (
     <div className="space-y-6">
+      <AvisoDeCambios cambios={cambios} />
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Reservar cancha</h1>
@@ -129,6 +135,7 @@ export function Reservar() {
           <GrillaDeHorarios
             bloques={disponibilidad.data}
             elegido={inicioElegido}
+            resaltados={cambios.map((cambio) => cambio.inicio)}
             onElegir={(bloque) => {
               empezarDeNuevo();
               setInicioElegido(bloque.inicio);

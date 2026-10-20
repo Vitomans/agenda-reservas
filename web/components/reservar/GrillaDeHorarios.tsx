@@ -24,9 +24,10 @@ type Props = {
   bloques: Bloque[];
   elegido: string | null; // el "inicio" del bloque elegido
   onElegir: (bloque: Bloque) => void;
+  resaltados?: string[]; // los "inicio" de las horas que otra persona acaba de cambiar
 };
 
-export function GrillaDeHorarios({ bloques, elegido, onElegir }: Props) {
+export function GrillaDeHorarios({ bloques, elegido, onElegir, resaltados = [] }: Props) {
   return (
     <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
       {bloques.map((bloque) => {
@@ -34,6 +35,10 @@ export function GrillaDeHorarios({ bloques, elegido, onElegir }: Props) {
         const estaElegido = bloque.inicio === elegido && bloque.estado === "libre";
         const estado = ESTADOS[bloque.estado];
         const texto = estaElegido ? "Elegido" : estado.texto;
+        // Un destello si se mueve la pantalla; si la persona pidió menos animaciones, un borde quieto
+        const resaltado = resaltados.includes(bloque.inicio)
+          ? "motion-safe:animate-destello motion-reduce:ring-2 motion-reduce:ring-lime-400"
+          : "";
 
         return (
           <li key={bloque.inicio}>
@@ -46,7 +51,7 @@ export function GrillaDeHorarios({ bloques, elegido, onElegir }: Props) {
               onClick={() => onElegir(bloque)}
               className={`flex w-full flex-col items-center rounded-xl border px-2 py-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-default ${
                 estaElegido ? "border-lime-500 bg-lime-100 text-slate-900 ring-2 ring-lime-400" : estado.clases
-              }`}
+              } ${resaltado}`}
             >
               <span className="text-base font-semibold tabular-nums">{bloque.hora}</span>
               <span className="text-xs">{texto}</span>
