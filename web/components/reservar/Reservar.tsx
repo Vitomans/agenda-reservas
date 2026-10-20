@@ -84,6 +84,13 @@ export function Reservar() {
   }
 
   const { zonaHoraria, tarifa } = horario.data;
+
+  // Las horas que ya pasaron no se muestran: en la tarde ocupaban media grilla. Solo se dice desde cuándo se puede reservar.
+  const bloquesQueVienen = porCancha.data?.filter((bloque) => bloque.estado !== "pasado") ?? [];
+  const horasQueVienen = delClub.data?.filter((hora) => hora.canchas.some((cancha) => cancha.estado !== "pasado")) ?? [];
+  const queVienen = vista === "cancha" ? bloquesQueVienen : horasQueVienen;
+  const total = (vista === "cancha" ? porCancha.data : delClub.data)?.length ?? 0;
+  const yaPasaronAlgunas = queVienen.length < total;
   // En la vista por hora, las canchas libres a la hora elegida (para cambiar de cancha en la barra)
   const canchasLibres =
     vista === "hora" && elegidaLibre
@@ -198,13 +205,35 @@ export function Reservar() {
           {vista === "cancha" && <Leyenda />}
         </div>
 
+        {yaPasaronAlgunas && (
+          <p className="mb-3 text-sm text-slate-500">
+            {queVienen.length > 0 ? (
+              `Las horas antes de las ${queVienen[0].hora} ya pasaron.`
+            ) : (
+              <>
+                Hoy ya no quedan horas para reservar.{" "}
+                <button
+                  type="button"
+                  className="font-medium text-blue-700 underline"
+                  onClick={() => {
+                    setDiaElegido(dias[1]);
+                    empezarDeNuevo();
+                  }}
+                >
+                  Ver mañana
+                </button>
+              </>
+            )}
+          </p>
+        )}
+
         {datos.isPending ? (
           <Cargando texto="Buscando horarios…" />
         ) : datos.isError ? (
           <Aviso>{datos.error.message}</Aviso>
         ) : vista === "cancha" ? (
           <GrillaDeHorarios
-            bloques={porCancha.data ?? []}
+            bloques={bloquesQueVienen}
             elegido={elegidaLibre?.inicio ?? null}
             resaltados={cambios.map((cambio) => cambio.inicio)}
             onElegir={(bloque) => {
@@ -214,7 +243,7 @@ export function Reservar() {
           />
         ) : (
           <GrillaPorHora
-            horas={delClub.data ?? []}
+            horas={horasQueVienen}
             elegida={elegidaLibre?.inicio ?? null}
             resaltados={cambios.map((cambio) => cambio.inicio)}
             onElegir={(hora) => {
