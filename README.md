@@ -2,7 +2,7 @@
 
 [![Estado del CI](https://github.com/Vitomans/agenda-reservas/actions/workflows/ci.yml/badge.svg)](https://github.com/Vitomans/agenda-reservas/actions/workflows/ci.yml)
 
-Una app de reservas para un club de pádel ficticio. Los jugadores eligen una cancha y un día, ven los horarios libres y reservan uno. Cuando alguien reserva, el horario aparece ocupado al instante en la pantalla de todos los demás, sin recargar la página. Los administradores ven y manejan todas las reservas.
+Una app de reservas para un club de pádel ficticio. Los jugadores eligen una cancha y un día, ven los horarios libres con su precio y reservan uno. Cuando alguien reserva, el horario aparece ocupado al instante en la pantalla de todos los demás, sin recargar la página. Los administradores ven el club de un vistazo (un tablero con todas las canchas, la ocupación, los ingresos y la hora más pedida) y manejan todas las reservas.
 
 **Demo en vivo: [volea-reservas.vercel.app](https://volea-reservas.vercel.app)**. Entra con **Jugador demo** (una cuenta nueva solo para ti) o **Admin demo**. El club tiene **socios simulados**: mientras miras una cancha, reservan y cancelan horas, así que vas a ver cambiar la grilla sola. También puedes abrir la demo en dos pantallas, por ejemplo en el celular y en el computador, y reservar tú.
 
@@ -121,6 +121,7 @@ El seed también crea 12 **socios simulados** (`socio-01@socios.example.com` a `
 | GET | `/api/reservas/mias` | jugador | Mis próximas reservas |
 | DELETE | `/api/reservas/:id` | dueño o admin | Cancela una reserva |
 | GET | `/api/admin/reservas?fecha=YYYY-MM-DD` | admin | Todas las reservas de un día, de cualquier fecha |
+| GET | `/api/admin/resumen?fecha=YYYY-MM-DD` | admin | La ocupación, las reservas y los ingresos del día y de su semana, y la hora más pedida de los últimos 30 días |
 | GET | `/api/admin/recursos` | admin | Todas las canchas, también las desactivadas |
 | POST | `/api/admin/recursos` | admin | Crea una cancha |
 | PATCH | `/api/admin/recursos/:id` | admin | Cambia el nombre de una cancha o la activa y desactiva |
@@ -132,6 +133,7 @@ Los errores siempre vuelven en JSON, por ejemplo `{ "error": "Email o contraseñ
 ## Reglas de las reservas
 
 - Los horarios duran 1 hora y empiezan en punto, de 08:00 a 22:00 (hora del club, `America/Santiago`).
+- Una hora cuesta $12.000, y $16.000 en hora punta (de lunes a viernes desde las 18:00, y todo el fin de semana). `GET /api/horario` entrega la tarifa, y cada horario de la disponibilidad trae su precio.
 - Se puede reservar desde hoy hasta 6 días más adelante, pero nunca en el pasado.
 - Una cancha no se puede reservar dos veces en el mismo horario. Si dos personas lo intentan al mismo tiempo, solo una lo consigue y la otra recibe un `409`.
 - Cada jugador puede tener como máximo 2 reservas activas.
@@ -176,6 +178,10 @@ Todo está en planes gratis:
 
 **401 y 403 significan cosas distintas.** `requiereSesion` responde "¿quién eres?" (`401`), y `soloRoles` responde "¿tienes permiso?" (`403`). El rol se lee del token, sin consultar la base de datos. La contra: si un admin cambia el rol de alguien, el cambio se aplica cuando vence su token.
 
+**Cada reserva guarda lo que costó.** El precio se calcula al reservar y queda guardado en la reserva, en vez de calcularlo cada vez que se necesita. Si el club sube sus tarifas, las reservas que ya existían mantienen su precio y los ingresos del pasado no cambian. Al agregar la columna, la migración le calculó el precio a las reservas que ya existían, con SQL y en la hora del club, y se comprobó que coincidiera con el cálculo de la API en todas.
+
+**La base de datos hace las cuentas del panel.** Los ingresos y las reservas se suman con `aggregate` de Prisma, y la hora más pedida se calcula con un `GROUP BY` en SQL. Así PostgreSQL agrupa y cuenta, y la API recibe solo el resultado, no cientos de reservas. Ojo con la zona horaria: `inicio` está guardado en UTC, así que antes de sacar la hora hay que pasarlo a la hora de Chile. Si no, las 19:00 de Chile aparecerían como las 22:00 o 23:00, y un test lo comprueba.
+
 **Las horas se guardan en UTC y se muestran en la hora del club.** Los días y los horarios se calculan en `America/Santiago` con Luxon. El servidor también decide qué día es "hoy" (`GET /api/horario`), así un reloj o una zona horaria mal configurados en el dispositivo del visitante no pueden cambiar las reglas de las reservas.
 
 **Los eventos en tiempo real son solo una señal.** Un evento dice qué cancha y qué horario cambiaron, y nada más: ni nombres ni emails, así que el socket no necesita sesión. La página marca esos datos como desactualizados y TanStack Query los vuelve a pedir a la API REST, que sigue siendo la única fuente de verdad. No hay una segunda copia del estado que mantener sincronizada, y si se pierde un evento, se arregla volviendo a pedir todo al reconectarse.
@@ -194,8 +200,8 @@ Todo está en planes gratis:
 
 ## Tests y CI
 
-- **API:** 67 tests con Vitest y Supertest: sesión, jugadores invitados, límite de intentos detrás de un proxy, reglas de las reservas (incluido dos personas reservando el mismo horario), roles y permisos, eventos en tiempo real con clientes de Socket.io de verdad y los socios simulados (que nunca cancelan la reserva de un jugador y que no hacen nada si nadie mira).
-- **Web:** 34 tests con Vitest y Testing Library: el cliente de la API, las funciones de fechas, la grilla de horarios, el formulario de login, el aviso de carga lenta, el hook de tiempo real (también con la pestaña escondida) y los avisos de lo que cambió en vivo.
+- **API:** 76 tests con Vitest y Supertest: sesión, jugadores invitados, límite de intentos detrás de un proxy, reglas de las reservas (incluido dos personas reservando el mismo horario), roles y permisos, eventos en tiempo real con clientes de Socket.io de verdad y los socios simulados (que nunca cancelan la reserva de un jugador y que no hacen nada si nadie mira), los precios y el resumen del panel de admin.
+- **Web:** 42 tests con Vitest y Testing Library: el cliente de la API, las funciones de fechas y de pesos, la grilla de horarios con sus precios, el tablero y las tarjetas del panel de admin, el formulario de login, el aviso de carga lenta, el hook de tiempo real (también con la pestaña escondida) y los avisos de lo que cambió en vivo.
 - **CI:** GitHub Actions corre lint, tipos, tests y build de los dos proyectos en cada push. El trabajo de la API levanta su propio PostgreSQL.
 
 ## Limitaciones conocidas
