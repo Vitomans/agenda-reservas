@@ -1,6 +1,7 @@
 import { db, esErrorDePrisma } from "../db.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
 import {
+  type Bloque,
   bloquesDelDia,
   DIAS_DE_ANTICIPACION,
   diaEnElClub,
@@ -43,35 +44,77 @@ function revisarQueElDiaSeaReservable(fecha: string) {
   }
 }
 
-// La grilla de un día: cada bloque con su estado para el usuario que la pide y su precio
-export async function disponibilidadDelDia(recursoId: string, fecha: string, usuarioId: string) {
+// Las reservas confirmadas de esas canchas en un día, para armar las grillas
+function reservasConfirmadasDelDia(recursoIds: string[], bloques: Bloque[]) {
+  return db.reserva.findMany({
+    where: {
+      recursoId: { in: recursoIds },
+      estado: "CONFIRMADA",
+      inicio: { gte: bloques[0].inicio, lt: bloques[bloques.length - 1].fin },
+    },
+    select: { recursoId: true, inicio: true, usuarioId: true },
+  });
+}
+
+type ReservaDeLaGrilla = Awaited<ReturnType<typeof reservasConfirmadasDelDia>>[number];
+
+// Cómo ve un bloque quien mira la grilla. Sin sesión (usuarioId undefined), ningún bloque es "mio".
+function estadoDelBloque(
+  bloque: Bloque,
+  reserva: ReservaDeLaGrilla | undefined,
+  usuarioId: string | undefined,
+  ahora: Date,
+): EstadoBloque {
+  if (bloque.inicio <= ahora) return "pasado";
+  if (!reserva) return "libre";
+  return usuarioId !== undefined && reserva.usuarioId === usuarioId ? "mio" : "ocupado";
+}
+
+function esDelBloque(reserva: ReservaDeLaGrilla, bloque: Bloque) {
+  return reserva.inicio.getTime() === bloque.inicio.getTime();
+}
+
+// La grilla de una cancha en un día: cada bloque con su estado para quien la mira y su precio.
+// También se ve sin sesión: no dice quién reservó, solo si está libre u ocupado.
+export async function disponibilidadDelDia(recursoId: string, fecha: string, usuarioId?: string) {
   await revisarQueLaCanchaExista(recursoId);
   revisarQueElDiaSeaReservable(fecha);
 
   const bloques = bloquesDelDia(fecha);
-  const reservas = await db.reserva.findMany({
-    where: {
-      recursoId,
-      estado: "CONFIRMADA",
-      inicio: { gte: bloques[0].inicio, lt: bloques[bloques.length - 1].fin },
-    },
-    select: { inicio: true, usuarioId: true },
-  });
-
+  const reservas = await reservasConfirmadasDelDia([recursoId], bloques);
   const ahora = new Date();
 
   return bloques.map((bloque) => {
-    const reserva = reservas.find((r) => r.inicio.getTime() === bloque.inicio.getTime());
-
-    let estado: EstadoBloque = "libre";
-    if (bloque.inicio <= ahora) {
-      estado = "pasado";
-    } else if (reserva) {
-      estado = reserva.usuarioId === usuarioId ? "mio" : "ocupado";
-    }
+    const reserva = reservas.find((r) => esDelBloque(r, bloque));
+    const estado = estadoDelBloque(bloque, reserva, usuarioId, ahora);
 
     return { ...bloque, estado, precio: precioDelBloque(bloque.inicio) };
   });
+}
+
+// Todo el club en un día, hora por hora: el precio de cada hora y cómo está cada cancha a esa hora.
+// Es la vista "¿A qué hora quieres jugar?": primero se elige la hora y después una cancha libre.
+export async function disponibilidadDelClub(fecha: string, usuarioId?: string) {
+  revisarQueElDiaSeaReservable(fecha);
+
+  const canchas = await db.recurso.findMany({
+    where: { activo: true },
+    orderBy: { nombre: "asc" },
+    select: { id: true, nombre: true },
+  });
+  const bloques = bloquesDelDia(fecha);
+  const reservas = await reservasConfirmadasDelDia(canchas.map((cancha) => cancha.id), bloques);
+  const ahora = new Date();
+
+  return bloques.map((bloque) => ({
+    ...bloque,
+    precio: precioDelBloque(bloque.inicio),
+    canchas: canchas.map((cancha) => {
+      const reserva = reservas.find((r) => r.recursoId === cancha.id && esDelBloque(r, bloque));
+      const estado = estadoDelBloque(bloque, reserva, usuarioId, ahora);
+      return { ...cancha, estado };
+    }),
+  }));
 }
 
 export async function crearReserva(usuarioId: string, recursoId: string, inicio: Date) {

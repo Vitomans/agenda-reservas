@@ -8,7 +8,7 @@ import { manejarErrores, rutaNoEncontrada } from "./middlewares/errores.ts";
 import { crearRutasAdmin } from "./rutas/admin.ts";
 import { crearRutasAuth } from "./rutas/auth.ts";
 import { crearRutasHorario } from "./rutas/horario.ts";
-import { crearRutasRecursos } from "./rutas/recursos.ts";
+import { crearRutasDisponibilidad, crearRutasRecursos } from "./rutas/recursos.ts";
 import { crearRutasReservas } from "./rutas/reservas.ts";
 import { type Avisador, sinAvisos } from "./tiempoReal.ts";
 
@@ -42,6 +42,7 @@ export function crearApp({
   app.use("/api/auth", crearRutasAuth());
   app.use("/api/horario", crearRutasHorario());
   app.use("/api/recursos", crearRutasRecursos());
+  app.use("/api/disponibilidad", crearRutasDisponibilidad());
   app.use("/api/reservas", crearRutasReservas(avisador, cartero));
   app.use("/api/admin", crearRutasAdmin());
 

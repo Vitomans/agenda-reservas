@@ -19,18 +19,10 @@ afterAll(async () => {
 });
 
 describe("GET /api/recursos", () => {
-  it("responde 401 si no hay sesión", async () => {
-    const respuesta = await request(crearApp()).get("/api/recursos");
-
-    expect(respuesta.status).toBe(401);
-  });
-
-  it("lista las canchas activas y no las desactivadas", async () => {
-    const app = crearApp();
-    const { navegador } = await entrarComoJugadorNuevo(app);
+  it("lista las canchas activas y no las desactivadas, también sin sesión", async () => {
     const desactivada = await crearCanchaDePrueba({ activo: false });
 
-    const respuesta = await navegador.get("/api/recursos");
+    const respuesta = await request(crearApp()).get("/api/recursos");
 
     expect(respuesta.status).toBe(200);
     const nombres = respuesta.body.recursos.map((recurso: { nombre: string }) => recurso.nombre);
@@ -60,6 +52,20 @@ describe("GET /api/recursos/:id/disponibilidad", () => {
     expect(estadoDe("09:00")).toBe("libre");
     expect(estadoDe("10:00")).toBe("mio");
     expect(estadoDe("11:00")).toBe("ocupado");
+  });
+
+  it("sin sesión muestra los ocupados, pero ninguno como propio", async () => {
+    const app = crearApp();
+    const cancha = await crearCanchaDePrueba();
+    const ana = await entrarComoJugadorNuevo(app);
+    await ana.navegador.post("/api/reservas").send({ recursoId: cancha.id, inicio: bloque(1, 10) });
+
+    const respuesta = await request(app).get(`/api/recursos/${cancha.id}/disponibilidad?fecha=${dia(1)}`);
+
+    expect(respuesta.status).toBe(200);
+    const estados = respuesta.body.bloques.map((b: { estado: string }) => b.estado);
+    expect(estados).not.toContain("mio");
+    expect(respuesta.body.bloques.find((b: { hora: string }) => b.hora === "10:00").estado).toBe("ocupado");
   });
 
   it("cada bloque trae su precio: normal o de hora punta", async () => {
@@ -110,6 +116,60 @@ describe("GET /api/recursos/:id/disponibilidad", () => {
       expect(respuesta.body).toEqual({ error: "La cancha no existe" });
     }
   });
+});
+
+describe("GET /api/disponibilidad", () => {
+  type HoraDelClub = { hora: string; precio: number; canchas: { id: string; nombre: string; estado: string }[] };
+
+  it("devuelve cada hora del día con su precio y cómo está cada cancha activa", async () => {
+    const app = crearApp();
+    const cancha = await crearCanchaDePrueba();
+    const desactivada = await crearCanchaDePrueba({ activo: false });
+    const ana = await entrarComoJugadorNuevo(app);
+    const beto = await entrarComoJugadorNuevo(app);
+    await ana.navegador.post("/api/reservas").send({ recursoId: cancha.id, inicio: bloque(1, 10) });
+    await beto.navegador.post("/api/reservas").send({ recursoId: cancha.id, inicio: bloque(1, 11) });
+
+    const respuesta = await ana.navegador.get(`/api/disponibilidad?fecha=${dia(1)}`);
+
+    expect(respuesta.status).toBe(200);
+    const horas: HoraDelClub[] = respuesta.body.horas;
+    expect(horas.map((h) => h.hora)).toEqual(horasEsperadas());
+    const estadoA = (hora: string) => horas.find((h) => h.hora === hora)?.canchas.find((c) => c.id === cancha.id)?.estado;
+    expect(estadoA("09:00")).toBe("libre");
+    expect(estadoA("10:00")).toBe("mio");
+    expect(estadoA("11:00")).toBe("ocupado");
+    for (const hora of horas) {
+      expect(hora.precio, hora.hora).toBe(precioDelBloque(new Date(bloque(1, Number(hora.hora.slice(0, 2))))));
+      expect(hora.canchas.map((c) => c.id)).not.toContain(desactivada.id);
+    }
+  });
+
+  it("también se ve sin sesión, y entonces ninguna reserva es propia", async () => {
+    const app = crearApp();
+    const cancha = await crearCanchaDePrueba();
+    const ana = await entrarComoJugadorNuevo(app);
+    await ana.navegador.post("/api/reservas").send({ recursoId: cancha.id, inicio: bloque(1, 10) });
+
+    const respuesta = await request(app).get(`/api/disponibilidad?fecha=${dia(1)}`);
+
+    expect(respuesta.status).toBe(200);
+    const diez = (respuesta.body.horas as HoraDelClub[]).find((h) => h.hora === "10:00");
+    expect(diez?.canchas.find((c) => c.id === cancha.id)?.estado).toBe("ocupado");
+  });
+
+  it("responde 400 si la fecha falta o queda fuera de los próximos 7 días", async () => {
+    const app = crearApp();
+
+    for (const consulta of ["", `?fecha=${dia(-1)}`, `?fecha=${dia(7)}`]) {
+      expect((await request(app).get(`/api/disponibilidad${consulta}`)).status).toBe(400);
+    }
+  });
+
+  // "08:00", "09:00"... hasta "22:00"
+  function horasEsperadas() {
+    return Array.from({ length: HORA_CIERRE - HORA_APERTURA }, (_, i) => `${String(HORA_APERTURA + i).padStart(2, "0")}:00`);
+  }
 });
 
 describe("POST /api/reservas", () => {
