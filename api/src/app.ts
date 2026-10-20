@@ -37,18 +37,22 @@ export function crearApp({
     res.json({ estado: "ok" });
   });
 
-  // La documentación de la API: una página para leer y probar cada ruta (Swagger UI) y el archivo OpenAPI
+  // La documentación de la API: una página para leer y probar cada ruta (Swagger UI) y el archivo OpenAPI.
+  // La página va en /docs, sin barra al final, porque Next.js quita esa barra al pasar el pedido por la web.
+  // Por eso sus archivos (estilos y scripts) se piden con la ruta completa, /docs/..., y no con "./".
+  const paginaDeLaDocumentacion = swaggerUi
+    .generateHTML(documentacion, {
+      customSiteTitle: "Documentación de la API · Volea",
+      customCss: ".swagger-ui .topbar { display: none }",
+    })
+    .replaceAll('="./', '="/docs/');
+  app.get("/docs", (_req, res) => {
+    res.send(paginaDeLaDocumentacion);
+  });
   app.get("/docs/openapi.json", (_req, res) => {
     res.json(documentacion);
   });
-  app.use(
-    "/docs",
-    swaggerUi.serve,
-    swaggerUi.setup(documentacion, {
-      customSiteTitle: "Documentación de la API · Volea",
-      customCss: ".swagger-ui .topbar { display: none }",
-    }),
-  );
+  app.use("/docs", swaggerUi.serve);
 
   // Desde aquí, todo lo de /api pide la clave de la página (si está configurada)
   app.use("/api", soloDesdeLaWeb(claveDeLaWeb));

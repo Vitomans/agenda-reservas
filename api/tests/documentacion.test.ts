@@ -17,11 +17,14 @@ describe("documentación de la API", () => {
   it("GET /docs muestra la página de Swagger UI", async () => {
     const app = crearApp();
 
-    // Express pide la barra final (/docs/) para que la página encuentre sus archivos
-    const respuesta = await request(app).get("/docs/");
+    const respuesta = await request(app).get("/docs");
 
     expect(respuesta.status).toBe(200);
     expect(respuesta.text).toContain("Documentación de la API · Volea");
+    // Sus archivos se piden con la ruta completa, y existen
+    expect(respuesta.text).toContain('href="/docs/swagger-ui.css"');
+    expect((await request(app).get("/docs/swagger-ui.css")).status).toBe(200);
+    expect((await request(app).get("/docs/swagger-ui-init.js")).text).toContain("API de Volea");
   });
 
   it("GET /docs/openapi.json entrega el archivo OpenAPI", async () => {
