@@ -33,7 +33,7 @@ export function useTiempoReal(recursoIds: string[]) {
   // El texto solo cambia si cambian las canchas, así el efecto de abajo no se repite por nada.
   const canchas = recursoIds.join(",");
 
-  // 1. Abre la conexión al entrar a la pantalla y la cierra al salir
+  // 1. Abre la conexión al entrar a la pantalla y la cierra al salir (o mientras la pestaña está escondida)
   useEffect(() => {
     const alConectar = () => setConectado(true);
     const alDesconectar = () => setConectado(false);
@@ -51,12 +51,24 @@ export function useTiempoReal(recursoIds: string[]) {
     // Mientras la conexión estuvo cortada pudimos perder avisos: al volver se pide todo de nuevo
     const alReconectar = () => ponerAlDia();
 
+    // Si la pestaña queda escondida se corta la conexión, y al volver se conecta y se pide todo de nuevo.
+    // Así una pestaña olvidada no gasta batería ni hace trabajar al servidor (ni a los socios simulados).
+    function alCambiarLaVisibilidad() {
+      if (document.visibilityState === "hidden") {
+        conexion.disconnect();
+      } else if (!conexion.connected) {
+        conexion.connect();
+        ponerAlDia();
+      }
+    }
+
     conexion.on("connect", alConectar);
     conexion.on("disconnect", alDesconectar);
     conexion.on("reserva:creada", alCambiarUnaReserva);
     conexion.on("reserva:cancelada", alCambiarUnaReserva);
     conexion.io.on("reconnect", alReconectar);
-    conexion.connect();
+    document.addEventListener("visibilitychange", alCambiarLaVisibilidad);
+    if (document.visibilityState !== "hidden") conexion.connect();
 
     return () => {
       conexion.off("connect", alConectar);
@@ -64,6 +76,7 @@ export function useTiempoReal(recursoIds: string[]) {
       conexion.off("reserva:creada", alCambiarUnaReserva);
       conexion.off("reserva:cancelada", alCambiarUnaReserva);
       conexion.io.off("reconnect", alReconectar);
+      document.removeEventListener("visibilitychange", alCambiarLaVisibilidad);
       conexion.disconnect();
     };
   }, [conexion, queryClient]);

@@ -72,6 +72,12 @@ function usarTiempoReal(recursoIds: string[]) {
   return { queryClient, ...hook };
 }
 
+// Simula que la pestaña se esconde (por ejemplo, al cambiar a otra) o que vuelve a verse
+function cambiarVisibilidad(estado: DocumentVisibilityState) {
+  Object.defineProperty(document, "visibilityState", { value: estado, configurable: true });
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
 const grillaCancha1 = [...claves.disponibilidad, "cancha-1", "2026-10-13"];
 const grillaCancha2 = [...claves.disponibilidad, "cancha-2", "2026-10-13"];
 
@@ -115,6 +121,20 @@ describe("useTiempoReal", () => {
 
     expect(queryClient.getQueryState(grillaCancha1)?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(grillaCancha2)?.isInvalidated).toBe(true);
+  });
+
+  it("con la pestaña escondida corta la conexión, y al volver se conecta y pide todo de nuevo", () => {
+    const { queryClient } = usarTiempoReal(["cancha-1"]);
+    act(() => conexion.conectarse());
+    queryClient.setQueryData(grillaCancha1, []);
+    const conectar = vi.spyOn(conexion, "connect");
+
+    act(() => cambiarVisibilidad("hidden"));
+    expect(conexion.connected).toBe(false);
+
+    act(() => cambiarVisibilidad("visible"));
+    expect(conectar).toHaveBeenCalled();
+    expect(queryClient.getQueryState(grillaCancha1)?.isInvalidated).toBe(true);
   });
 
   it("al salir de la pantalla cierra la conexión", () => {
