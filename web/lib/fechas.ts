@@ -44,6 +44,16 @@ export function diaLargo(dia: string) {
   return texto.replace(",", ""); // Intl lo escribe "miércoles, 14 de octubre"
 }
 
+// Un rango de días: "19 al 25 de octubre", o "28 de septiembre al 4 de octubre" si cambia el mes
+export function rangoDeDias(desde: string, hasta: string) {
+  const formato = (opciones: Intl.DateTimeFormatOptions, dia: string) =>
+    new Intl.DateTimeFormat(IDIOMA, { ...opciones, timeZone: "UTC" }).format(mediodia(dia));
+  const diaYMes = (dia: string) => formato({ day: "numeric", month: "long" }, dia);
+
+  const mismoMes = desde.slice(0, 7) === hasta.slice(0, 7);
+  return mismoMes ? `${formato({ day: "numeric" }, desde)} al ${diaYMes(hasta)}` : `${diaYMes(desde)} al ${diaYMes(hasta)}`;
+}
+
 // La hora en el club: "2026-10-13T22:00:00.000Z" → "19:00"
 export function horaEnElClub(iso: string, zonaHoraria: string) {
   return new Intl.DateTimeFormat(IDIOMA, {

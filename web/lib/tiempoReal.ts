@@ -45,6 +45,7 @@ export function useTiempoReal(recursoIds: string[]) {
       });
       queryClient.invalidateQueries({ queryKey: claves.misReservas });
       queryClient.invalidateQueries({ queryKey: claves.reservasDelDia });
+      queryClient.invalidateQueries({ queryKey: claves.resumen });
     }
 
     const alCambiarUnaReserva = ({ recursoId }: CambioEnVivo) => ponerAlDia(recursoId);

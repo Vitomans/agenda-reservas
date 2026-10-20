@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ErrorApi, pedirApi } from "./api";
-import type { Bloque, Horario, Recurso, RecursoAdmin, Reserva, ReservaAdmin, Rol, Usuario } from "./tipos";
+import type { Bloque, Horario, Recurso, RecursoAdmin, Reserva, ReservaAdmin, Resumen, Rol, Usuario } from "./tipos";
 
 // Todo lo que la página le pide a la API pasa por aquí.
 //
@@ -14,6 +14,7 @@ export const claves = {
   disponibilidad: ["disponibilidad"],
   misReservas: ["mis-reservas"],
   reservasDelDia: ["admin", "reservas"],
+  resumen: ["admin", "resumen"],
   canchasAdmin: ["admin", "recursos"],
 } as const;
 
@@ -77,6 +78,16 @@ export function useReservasDelDia(fecha: string | undefined) {
     queryKey: [...claves.reservasDelDia, fecha],
     queryFn: async () => (await pedirApi<{ reservas: ReservaAdmin[] }>(`/admin/reservas?fecha=${fecha}`)).reservas,
     enabled: Boolean(fecha),
+  });
+}
+
+export function useResumen(fecha: string | undefined) {
+  return useQuery({
+    queryKey: [...claves.resumen, fecha],
+    queryFn: () => pedirApi<Resumen>(`/admin/resumen?fecha=${fecha}`),
+    enabled: Boolean(fecha),
+    // Al cambiar de día se siguen viendo los números anteriores hasta que llegan los nuevos (así no saltan)
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -156,6 +167,7 @@ export function useCancelarReserva() {
       queryClient.invalidateQueries({ queryKey: claves.disponibilidad });
       queryClient.invalidateQueries({ queryKey: claves.misReservas });
       queryClient.invalidateQueries({ queryKey: claves.reservasDelDia });
+      queryClient.invalidateQueries({ queryKey: claves.resumen });
     },
   });
 }
@@ -182,6 +194,7 @@ export function useEditarCancha() {
       queryClient.invalidateQueries({ queryKey: claves.canchasAdmin });
       queryClient.invalidateQueries({ queryKey: claves.recursos });
       queryClient.invalidateQueries({ queryKey: claves.reservasDelDia });
+      queryClient.invalidateQueries({ queryKey: claves.resumen });
     },
   });
 }

@@ -50,6 +50,14 @@ export type ReservaAdmin = Reserva & {
   usuario: { id: string; nombre: string; email: string };
 };
 
+// Los números del día para el dueño (ver api/src/servicios/resumen.ts)
+export type Resumen = {
+  fecha: string;
+  dia: { reservas: number; ingresos: number; horasDelDia: number; ocupacion: number }; // ocupación de 0 a 1
+  semana: { desde: string; hasta: string; reservas: number; ingresos: number }; // de lunes a domingo
+  horaMasPedida: { hora: string; reservas: number } | null; // en los últimos 30 días
+};
+
 // Lo que trae cada aviso en vivo: qué cancha y qué horario cambió (ver api/src/tiempoReal.ts)
 export type CambioEnVivo = {
   recursoId: string;
