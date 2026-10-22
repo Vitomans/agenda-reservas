@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { horasLibres, resumenParaLaIA } from "../src/asistente/herramientas.ts";
+import { horasLibres, informacionParaLaIA, resumenParaLaIA } from "../src/asistente/herramientas.ts";
 import { db } from "../src/db.ts";
 import type { EstadoBloque } from "../src/servicios/reservas.ts";
 
@@ -78,5 +78,34 @@ describe("resumenParaLaIA", () => {
     const aviso = "Ese día no se puede reservar: solo desde hoy hasta el miércoles 28 de octubre.";
 
     expect(resumenParaLaIA({ fecha: "2026-11-15" }, { horas: [], tusReservas: [], aviso })).toBe(aviso);
+  });
+});
+
+describe("informacionParaLaIA", () => {
+  it("le pasa al modelo cada sección con su documento entre corchetes, con el texto tomado del índice", () => {
+    const texto = informacionParaLaIA({
+      // El documento y la sección que vienen en el resultado son solo para la página: el modelo lee los del índice
+      fuentes: [{ id: "servicios#arriendo-de-paletas", documento: "Otro", seccion: "Otra" }],
+      forma: "palabras",
+    });
+
+    expect(texto).toMatch(/^\[Servicios del club › Arriendo de paletas\]\nSi no tienes paleta, puedes arrendar una/);
+    expect(texto).not.toContain("Otro");
+  });
+
+  it("separa las secciones con una línea en blanco", () => {
+    const texto = informacionParaLaIA({
+      fuentes: [
+        { id: "servicios#pelotas", documento: "Servicios del club", seccion: "Pelotas" },
+        { id: "servicios#estacionamiento", documento: "Servicios del club", seccion: "Estacionamiento" },
+      ],
+      forma: "significado",
+    });
+
+    expect(texto).toContain("$6.000.\n\n[Servicios del club › Estacionamiento]\n");
+  });
+
+  it("si no encontró nada, se lo dice al modelo para que no invente", () => {
+    expect(informacionParaLaIA({ fuentes: [], forma: "palabras" })).toBe("No hay nada sobre eso en la información del club.");
   });
 });

@@ -1,7 +1,8 @@
-import { tool } from "ai";
+import { type EmbeddingModel, tool } from "ai";
 import { z } from "zod";
 import { diasReservables } from "../servicios/horario.ts";
 import { disponibilidadDelClub } from "../servicios/reservas.ts";
+import { buscarEnElClub, pedazoPorId } from "./conocimiento.ts";
 import { horaEnPunto, nombreDelDia, pesos } from "./textos.ts";
 
 // Las herramientas: lo que la IA le puede pedir a la API mientras conversa.
@@ -106,9 +107,62 @@ export function resumenParaLaIA({ fecha, desde, hasta }: PedidoDeHorarios, { hor
   return lineas.join("\n");
 }
 
-// Se arman en cada mensaje con el usuario de la sesión (o sin usuario, si no entró):
-// así la IA ve las reservas propias como propias, igual que la grilla de la página.
-export function crearHerramientas(usuarioId?: string) {
+const esquemaPedidoDeInformacion = z.object({
+  pregunta: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe("Lo que hay que buscar, en pocas palabras. Por ejemplo: arriendo de paletas"),
+});
+
+type PedidoDeInformacion = z.infer<typeof esquemaPedidoDeInformacion>;
+
+// Lo que devuelve buscarInformacion: de qué documentos y secciones sacó la información. La página los muestra
+// como fuentes. El texto de cada sección no viaja a la página: el modelo lo lee del índice con el id
+// (ver informacionParaLaIA). Así, quien escriba la conversación a mano no puede inventar un "documento del club":
+// el id tiene que ser el de una sección que existe.
+export const esquemaInformacionDelClub = z.object({
+  fuentes: z.array(
+    z.object({
+      id: z
+        .string()
+        .refine((id) => pedazoPorId(id) !== undefined, { error: "No es una sección de los documentos del club" }),
+      documento: z.string(),
+      seccion: z.string(),
+    }),
+  ),
+  // Cómo buscó: por significado (con Gemini) o por palabras (el respaldo)
+  forma: z.enum(["significado", "palabras"]),
+});
+
+export type InformacionDelClub = z.infer<typeof esquemaInformacionDelClub>;
+
+async function buscarInformacion(
+  { pregunta }: PedidoDeInformacion,
+  modeloDeVectores: EmbeddingModel | null,
+): Promise<InformacionDelClub> {
+  const { pedazos, forma } = await buscarEnElClub(pregunta, modeloDeVectores);
+  return { fuentes: pedazos.map(({ id, documento, seccion }) => ({ id, documento, seccion })), forma };
+}
+
+// Lo que lee el modelo: cada sección con su documento entre corchetes, para que pueda decir de dónde sale la respuesta.
+//
+// [Servicios del club › Arriendo de paletas]
+// Si no tienes paleta, puedes arrendar una en recepción a $3.000 por hora...
+export function informacionParaLaIA({ fuentes }: InformacionDelClub) {
+  const pedazos = fuentes.map(({ id }) => pedazoPorId(id)).filter((pedazo) => pedazo !== undefined);
+  if (pedazos.length === 0) return "No hay nada sobre eso en la información del club.";
+
+  return pedazos.map(({ documento, seccion, texto }) => `[${documento} › ${seccion}]\n${texto}`).join("\n\n");
+}
+
+// Se arman en cada mensaje con el usuario de la sesión (o sin usuario, si no entró): así la IA ve las reservas
+// propias como propias, igual que la grilla de la página. "modeloDeVectores" es el que busca en la información
+// del club por significado; sin él, se busca por palabras.
+export function crearHerramientas({
+  usuarioId,
+  modeloDeVectores = null,
+}: { usuarioId?: string; modeloDeVectores?: EmbeddingModel | null } = {}) {
   return {
     verHorariosLibres: tool({
       description:
@@ -117,6 +171,15 @@ export function crearHerramientas(usuarioId?: string) {
       outputSchema: esquemaHorariosLibres,
       execute: (pedido) => verHorariosLibres(pedido, usuarioId),
       toModelOutput: ({ input, output }) => ({ type: "text", value: resumenParaLaIA(input, output) }),
+    }),
+    buscarInformacion: tool({
+      description:
+        "Busca en los documentos del club: reglamento, servicios (paletas, pelotas, camarines, estacionamiento, cafetería), " +
+        "clases, liga, pagos y cómo llegar. Úsala para cualquier pregunta del club que no sea de horas libres ni de precios de cancha.",
+      inputSchema: esquemaPedidoDeInformacion,
+      outputSchema: esquemaInformacionDelClub,
+      execute: (pedido) => buscarInformacion(pedido, modeloDeVectores),
+      toModelOutput: ({ output }) => ({ type: "text", value: informacionParaLaIA(output) }),
     }),
   };
 }

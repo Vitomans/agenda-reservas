@@ -43,3 +43,7 @@ services:
       # El asistente con IA conversa con Groq (plan gratis). La clave se escribe a mano en Render.
       - key: GROQ_API_KEY
         sync: false
+      # Gemini (plan gratis) calcula el vector de cada pregunta para buscar en la información del club.
+      # Sin la clave, el asistente busca por palabras. Se escribe a mano en Render.
+      - key: GEMINI_API_KEY
+        sync: false

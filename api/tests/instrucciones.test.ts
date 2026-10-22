@@ -44,6 +44,15 @@ describe("instrucciones del asistente", () => {
     expect(instrucciones(JUEVES_EN_LA_TARDE)).toContain('"puedes", "quieres", "elige", "toca" (nunca "podés", "querés", "elegí", "tocá")');
   });
 
+  it("piden buscar en la información del club, decir de dónde sale la respuesta y no inventar", () => {
+    const texto = instrucciones(JUEVES_EN_LA_TARDE);
+
+    expect(texto).toContain("usa buscarInformacion y responde solo con lo que encuentres");
+    expect(texto).toContain("Nombra el documento de donde sale la respuesta");
+    // Con "¿tienen sauna?", el modelo respondió "no hay sauna", aunque los documentos solo no lo mencionan
+    expect(texto).toContain("di que no tienes esa información, sin decir que el club no lo tiene");
+  });
+
   it("pasado medianoche, 'hoy' ya es el día siguiente en el club", () => {
     // 03:30 UTC del viernes 23 son las 00:30 del viernes en Chile
     expect(instrucciones(new Date("2026-10-23T03:30:00Z"))).toContain("hoy viernes 23 de octubre (2026-10-23)");

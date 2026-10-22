@@ -22,6 +22,9 @@ const esquema = z.object({
   CORREO_REMITENTE: z.email().default("reservas@volea.example.com"),
   // Clave de Groq (plan gratis), el servicio de IA con el que conversa el asistente. Sin ella, el asistente no atiende.
   GROQ_API_KEY: z.string().min(1).optional(),
+  // Clave de Gemini (plan gratis), con la que el asistente busca en la información del club por significado.
+  // Sin ella, busca por palabras.
+  GEMINI_API_KEY: z.string().min(1).optional(),
 });
 
 const resultado = esquema.safeParse(process.env);

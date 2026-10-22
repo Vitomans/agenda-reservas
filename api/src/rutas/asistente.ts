@@ -1,4 +1,4 @@
-import { type LanguageModel, pipeAgentUIStreamToResponse } from "ai";
+import { type EmbeddingModel, type LanguageModel, pipeAgentUIStreamToResponse } from "ai";
 import { Router } from "express";
 import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import { crearAsistente } from "../asistente/asistente.ts";
@@ -30,8 +30,9 @@ function limiteDeMensajes(minutos: number, limite: number, error: string) {
 }
 
 // "modelo" es null cuando no hay clave de la IA: la ruta existe, pero responde que el asistente no está disponible.
+// "modeloDeVectores" es null cuando no hay clave de Gemini: el asistente busca en la información del club por palabras.
 // Es una función por la misma razón que crearRutasAuth: cada app de los tests tiene sus propios contadores.
-export function crearRutasAsistente(modelo: LanguageModel | null) {
+export function crearRutasAsistente(modelo: LanguageModel | null, modeloDeVectores: EmbeddingModel | null = null) {
   const rutas = Router();
 
   // El plan gratis de la IA tiene una cuota diaria: así una sola persona no se la gasta toda
@@ -52,7 +53,7 @@ export function crearRutasAsistente(modelo: LanguageModel | null) {
       throw new ErrorHttp(503, "El asistente no está disponible en este momento");
     }
 
-    const asistente = crearAsistente(modelo, { usuarioId: req.usuario?.id });
+    const asistente = crearAsistente(modelo, { usuarioId: req.usuario?.id, modeloDeVectores });
     const mensajes = await conversacionValida(req.body, asistente.tools);
 
     // Si la persona cierra el chat o la página a mitad de la respuesta, se deja de pedirle a la IA (y de gastar cuota)

@@ -1,4 +1,4 @@
-import type { LanguageModel } from "ai";
+import type { EmbeddingModel, LanguageModel } from "ai";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
@@ -23,13 +23,21 @@ import { type Avisador, sinAvisos } from "./tiempoReal.ts";
 // y "cartero", lo que usan para enviar los correos (ver cartero.ts).
 // "claveDeLaWeb" hace que la API atienda solo los pedidos que pasan por la página (ver soloDesdeLaWeb.ts).
 // "modelo" es la IA con la que conversa el asistente: server.ts le pasa la de verdad y los tests, una falsa.
-// Por defecto no hay, así un test nunca gasta la cuota de la IA sin querer.
+// "modeloDeVectores" es la que busca en la información del club por significado (sin ella, busca por palabras).
+// Por defecto no hay ninguna, así un test nunca gasta la cuota de la IA sin querer.
 export function crearApp({
   avisador = sinAvisos,
   cartero = sinCorreos,
   claveDeLaWeb = config.CLAVE_DE_LA_WEB,
   modelo = null,
-}: { avisador?: Avisador; cartero?: Cartero; claveDeLaWeb?: string; modelo?: LanguageModel | null } = {}) {
+  modeloDeVectores = null,
+}: {
+  avisador?: Avisador;
+  cartero?: Cartero;
+  claveDeLaWeb?: string;
+  modelo?: LanguageModel | null;
+  modeloDeVectores?: EmbeddingModel | null;
+} = {}) {
   const app = express();
 
   app.use(helmet()); // cabeceras de seguridad
@@ -68,7 +76,7 @@ export function crearApp({
   app.use("/api/disponibilidad", crearRutasDisponibilidad());
   app.use("/api/reservas", crearRutasReservas(avisador, cartero));
   app.use("/api/admin", crearRutasAdmin());
-  app.use("/api/asistente", crearRutasAsistente(modelo));
+  app.use("/api/asistente", crearRutasAsistente(modelo, modeloDeVectores));
 
   app.use(rutaNoEncontrada);
   app.use(manejarErrores);
