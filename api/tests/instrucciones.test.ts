@@ -33,6 +33,17 @@ describe("instrucciones del asistente", () => {
     expect(texto).toContain("como máximo 2 reservas activas");
   });
 
+  it("piden consultar verHorariosLibres antes de decir si hay cancha, y no repetir las horas que la página muestra", () => {
+    const texto = instrucciones(JUEVES_EN_LA_TARDE);
+
+    expect(texto).toContain("Usa verHorariosLibres antes de decir si hay cancha");
+    expect(texto).toContain("No las repitas una por una");
+  });
+
+  it("piden hablar de 'tú' con ejemplos, porque el modelo a veces escribía 'podés' o 'elegí'", () => {
+    expect(instrucciones(JUEVES_EN_LA_TARDE)).toContain('"puedes", "quieres", "elige", "toca" (nunca "podés", "querés", "elegí", "tocá")');
+  });
+
   it("pasado medianoche, 'hoy' ya es el día siguiente en el club", () => {
     // 03:30 UTC del viernes 23 son las 00:30 del viernes en Chile
     expect(instrucciones(new Date("2026-10-23T03:30:00Z"))).toContain("hoy viernes 23 de octubre (2026-10-23)");

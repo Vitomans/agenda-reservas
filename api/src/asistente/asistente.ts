@@ -1,7 +1,8 @@
 import { isStepCount, type LanguageModel, ToolLoopAgent } from "ai";
+import { crearHerramientas } from "./herramientas.ts";
 import { instrucciones } from "./instrucciones.ts";
 
-// El "cerebro" del asistente: el modelo, sus instrucciones y sus límites.
+// El "cerebro" del asistente: el modelo, sus instrucciones, sus herramientas y sus límites.
 // No sabe nada de Express ni de la página: recibe la conversación y responde (ver rutas/asistente.ts).
 
 // Cuántas veces puede "pensar y actuar" el modelo en una sola respuesta. Cada paso es un pedido a la IA:
@@ -12,10 +13,12 @@ export const MAXIMO_PASOS = 5;
 const MAXIMO_TOKENS_DE_RESPUESTA = 800;
 
 // Se crea uno nuevo en cada mensaje, porque las instrucciones llevan la hora del club
-export function crearAsistente(modelo: LanguageModel, ahora = new Date()) {
+// y las herramientas, el usuario de la sesión (undefined si la persona no entró)
+export function crearAsistente(modelo: LanguageModel, { usuarioId, ahora = new Date() }: { usuarioId?: string; ahora?: Date } = {}) {
   return new ToolLoopAgent({
     model: modelo,
     instructions: instrucciones(ahora),
+    tools: crearHerramientas(usuarioId),
     stopWhen: isStepCount(MAXIMO_PASOS),
     maxOutputTokens: MAXIMO_TOKENS_DE_RESPUESTA,
     // gpt-oss "razona" antes de responder, y ese razonamiento también gasta tokens.

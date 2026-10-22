@@ -3,6 +3,7 @@ import { Router } from "express";
 import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import { crearAsistente } from "../asistente/asistente.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
+import { sesionOpcional } from "../middlewares/sesion.ts";
 import { ipDelVisitante } from "../middlewares/soloDesdeLaWeb.ts";
 import { conversacionValida } from "../validacion/asistente.ts";
 
@@ -45,12 +46,14 @@ export function crearRutasAsistente(modelo: LanguageModel | null) {
     "Llegaste al máximo de mensajes al asistente por hoy. Puedes seguir reservando en la grilla.",
   );
 
-  rutas.post("/", porRato, porDia, async (req, res) => {
+  // Se puede conversar sin entrar, como se ven los horarios. Con sesión, el asistente ve las reservas propias.
+  rutas.post("/", porRato, porDia, sesionOpcional, async (req, res) => {
     if (!modelo) {
       throw new ErrorHttp(503, "El asistente no está disponible en este momento");
     }
 
-    const mensajes = await conversacionValida(req.body);
+    const asistente = crearAsistente(modelo, { usuarioId: req.usuario?.id });
+    const mensajes = await conversacionValida(req.body, asistente.tools);
 
     // Si la persona cierra el chat o la página a mitad de la respuesta, se deja de pedirle a la IA (y de gastar cuota)
     const cancelar = new AbortController();
@@ -58,7 +61,7 @@ export function crearRutasAsistente(modelo: LanguageModel | null) {
 
     await pipeAgentUIStreamToResponse({
       response: res,
-      agent: crearAsistente(modelo),
+      agent: asistente,
       uiMessages: mensajes,
       abortSignal: cancelar.signal,
       // "no-transform" les pide a los intermediarios (el puente de la página) que no toquen la respuesta.
