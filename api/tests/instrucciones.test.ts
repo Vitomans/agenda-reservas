@@ -1,0 +1,40 @@
+import { afterAll, describe, expect, it } from "vitest";
+import { instrucciones } from "../src/asistente/instrucciones.ts";
+import { db } from "../src/db.ts";
+
+afterAll(async () => {
+  await db.$disconnect();
+});
+
+// Jueves 22 de octubre de 2026 a las 15:40 en Chile (en octubre, Chile está 3 horas detrás de UTC)
+const JUEVES_EN_LA_TARDE = new Date("2026-10-22T18:40:00Z");
+
+describe("instrucciones del asistente", () => {
+  it("dicen el día y la hora del club, no los del servidor", () => {
+    expect(instrucciones(JUEVES_EN_LA_TARDE)).toContain("jueves 22 de octubre de 2026, 15:40");
+  });
+
+  it("nombran los 7 días que se pueden reservar, con su fecha, para que el modelo entienda 'mañana' o 'el sábado'", () => {
+    const texto = instrucciones(JUEVES_EN_LA_TARDE);
+
+    expect(texto).toContain("hoy jueves 22 de octubre (2026-10-22)");
+    expect(texto).toContain("mañana viernes 23 de octubre (2026-10-23)");
+    expect(texto).toContain("sábado 24 de octubre (2026-10-24)");
+    expect(texto).toContain("miércoles 28 de octubre (2026-10-28)");
+    expect(texto).not.toContain("2026-10-29");
+  });
+
+  it("toman los precios y las reglas de la tarifa y las reglas de la API", () => {
+    const texto = instrucciones(JUEVES_EN_LA_TARDE);
+
+    expect(texto).toContain("$12.000");
+    expect(texto).toContain("$16.000 en hora punta (de lunes a viernes desde las 18:00");
+    expect(texto).toContain("Abre de 08:00 a 23:00");
+    expect(texto).toContain("como máximo 2 reservas activas");
+  });
+
+  it("pasado medianoche, 'hoy' ya es el día siguiente en el club", () => {
+    // 03:30 UTC del viernes 23 son las 00:30 del viernes en Chile
+    expect(instrucciones(new Date("2026-10-23T03:30:00Z"))).toContain("hoy viernes 23 de octubre (2026-10-23)");
+  });
+});

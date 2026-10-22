@@ -20,6 +20,8 @@ const esquema = z.object({
   BREVO_API_KEY: z.string().min(1).optional(),
   // Desde qué dirección salen los correos. Brevo pide confirmarla antes de poder usarla.
   CORREO_REMITENTE: z.email().default("reservas@volea.example.com"),
+  // Clave de Groq (plan gratis), el servicio de IA con el que conversa el asistente. Sin ella, el asistente no atiende.
+  GROQ_API_KEY: z.string().min(1).optional(),
 });
 
 const resultado = esquema.safeParse(process.env);

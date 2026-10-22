@@ -16,8 +16,10 @@
     "db:reiniciar": "prisma migrate reset"
   },
   "dependencies": {
+    "@ai-sdk/groq": "^4.0.67",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "ai": "^7.0.148",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

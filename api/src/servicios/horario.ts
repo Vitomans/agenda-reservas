@@ -25,9 +25,9 @@ export function hoyEnElClub() {
   return DateTime.now().setZone(ZONA_HORARIA).toISODate()!;
 }
 
-// Los días que se pueden ver y reservar, empezando por hoy
-export function diasReservables() {
-  const hoy = DateTime.now().setZone(ZONA_HORARIA).startOf("day");
+// Los días que se pueden ver y reservar, empezando por hoy ("ahora" se cambia en los tests)
+export function diasReservables(ahora = new Date()) {
+  const hoy = enElClub(ahora).startOf("day");
   return Array.from({ length: DIAS_DE_ANTICIPACION }, (_, i) => hoy.plus({ days: i }).toISODate()!);
 }
 

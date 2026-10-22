@@ -40,3 +40,6 @@ services:
         sync: false
       - key: CORREO_REMITENTE
         value: vitomanmendez@gmail.com
+      # El asistente con IA conversa con Groq (plan gratis). La clave se escribe a mano en Render.
+      - key: GROQ_API_KEY
+        sync: false

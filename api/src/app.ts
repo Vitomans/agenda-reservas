@@ -1,3 +1,4 @@
+import type { LanguageModel } from "ai";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
@@ -9,6 +10,7 @@ import { documentacion } from "./documentacion.ts";
 import { manejarErrores, rutaNoEncontrada } from "./middlewares/errores.ts";
 import { soloDesdeLaWeb } from "./middlewares/soloDesdeLaWeb.ts";
 import { crearRutasAdmin } from "./rutas/admin.ts";
+import { crearRutasAsistente } from "./rutas/asistente.ts";
 import { crearRutasAuth } from "./rutas/auth.ts";
 import { crearRutasHorario } from "./rutas/horario.ts";
 import { crearRutasDisponibilidad, crearRutasRecursos } from "./rutas/recursos.ts";
@@ -20,11 +22,14 @@ import { type Avisador, sinAvisos } from "./tiempoReal.ts";
 // "avisador" es lo que usan las rutas para avisar en vivo (ver tiempoReal.ts),
 // y "cartero", lo que usan para enviar los correos (ver cartero.ts).
 // "claveDeLaWeb" hace que la API atienda solo los pedidos que pasan por la página (ver soloDesdeLaWeb.ts).
+// "modelo" es la IA con la que conversa el asistente: server.ts le pasa la de verdad y los tests, una falsa.
+// Por defecto no hay, así un test nunca gasta la cuota de la IA sin querer.
 export function crearApp({
   avisador = sinAvisos,
   cartero = sinCorreos,
   claveDeLaWeb = config.CLAVE_DE_LA_WEB,
-}: { avisador?: Avisador; cartero?: Cartero; claveDeLaWeb?: string } = {}) {
+  modelo = null,
+}: { avisador?: Avisador; cartero?: Cartero; claveDeLaWeb?: string; modelo?: LanguageModel | null } = {}) {
   const app = express();
 
   app.use(helmet()); // cabeceras de seguridad
@@ -63,6 +68,7 @@ export function crearApp({
   app.use("/api/disponibilidad", crearRutasDisponibilidad());
   app.use("/api/reservas", crearRutasReservas(avisador, cartero));
   app.use("/api/admin", crearRutasAdmin());
+  app.use("/api/asistente", crearRutasAsistente(modelo));
 
   app.use(rutaNoEncontrada);
   app.use(manejarErrores);
