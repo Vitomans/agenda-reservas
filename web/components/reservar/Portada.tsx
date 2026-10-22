@@ -1,3 +1,4 @@
+import { ID_DEL_BOTON } from "@/lib/asistente";
 import { formatearPesos } from "@/lib/dinero";
 import type { Horario } from "@/lib/tipos";
 import { EnVivo } from "../EnVivo";
@@ -7,12 +8,16 @@ type Props = {
   horario: Horario;
   canchas: number;
   enVivo: boolean;
+  // El botón para abrir el asistente con IA, y si ya está abierto
+  onPreguntar: () => void;
+  preguntando: boolean;
 };
 
 const dosDigitos = (hora: number) => `${String(hora).padStart(2, "0")}:00`;
 
-// La portada de la página de reservar: el club, su horario, los precios y si la página está en vivo
-export function Portada({ horario, canchas, enVivo }: Props) {
+// La portada de la página de reservar: el club, su horario, los precios, si la página está en vivo
+// y el botón del asistente con IA
+export function Portada({ horario, canchas, enVivo, onPreguntar, preguntando }: Props) {
   const { tarifa, horaApertura, horaCierre } = horario;
 
   return (
@@ -42,6 +47,19 @@ export function Portada({ horario, canchas, enVivo }: Props) {
         <p className="mt-2 text-xs text-blue-200">
           Hora punta: de lunes a viernes desde las {dosDigitos(tarifa.inicioPuntaEntreSemana)}, y todo el fin de semana.
         </p>
+
+        <button
+          id={ID_DEL_BOTON}
+          type="button"
+          onClick={onPreguntar}
+          aria-expanded={preguntando}
+          className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-900 shadow-sm hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300"
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4" fill="currentColor">
+            <path d="M3 4.5A2.5 2.5 0 0 1 5.5 2h9A2.5 2.5 0 0 1 17 4.5v7a2.5 2.5 0 0 1-2.5 2.5H9l-4 3.5V14h0a2 2 0 0 1-2-2V4.5Z" />
+          </svg>
+          Pregúntale al asistente
+        </button>
       </div>
     </section>
   );

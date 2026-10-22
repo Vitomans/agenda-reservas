@@ -17,6 +17,7 @@ import { formatearPesos } from "@/lib/dinero";
 import { describirHorario, diaLargo } from "@/lib/fechas";
 import { useTiempoReal } from "@/lib/tiempoReal";
 import type { Reserva } from "@/lib/tipos";
+import { Asistente } from "../asistente/Asistente";
 import { Aviso, Cargando } from "../Aviso";
 import { VistaDelCorreo } from "../VistaDelCorreo";
 import { AvisoDeCambios } from "./AvisoDeCambios";
@@ -43,6 +44,7 @@ export function Reservar() {
   const [eleccion, setEleccion] = useState<Eleccion | null>(null);
   const [reservaHecha, setReservaHecha] = useState<Reserva | null>(null);
   const [viendoCorreo, setViendoCorreo] = useState(false);
+  const [asistenteAbierto, setAsistenteAbierto] = useState(false);
 
   // Si no se eligió nada (o lo elegido ya no está, por ejemplo al cambiar el día a medianoche),
   // se usa la primera cancha y el día de hoy
@@ -131,7 +133,13 @@ export function Reservar() {
     <div className="space-y-6">
       <AvisoDeCambios cambios={cambios} />
 
-      <Portada horario={horario.data} canchas={recursos.data.length} enVivo={enVivo} />
+      <Portada
+        horario={horario.data}
+        canchas={recursos.data.length}
+        enVivo={enVivo}
+        onPreguntar={() => setAsistenteAbierto(true)}
+        preguntando={asistenteAbierto}
+      />
 
       <div className="space-y-3">
         <SelectorDeVista
@@ -259,6 +267,8 @@ export function Reservar() {
           onCancelar={() => setEleccion(null)}
         />
       )}
+
+      <Asistente abierto={asistenteAbierto} onCerrar={() => setAsistenteAbierto(false)} />
     </div>
   );
 }
