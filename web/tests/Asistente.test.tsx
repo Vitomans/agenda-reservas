@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Asistente } from "@/components/asistente/Asistente";
 import { MAXIMO_CARACTERES, SUGERENCIAS } from "@/lib/asistente";
+import type { HorariosLibres, PedidoDeHorarios } from "@/lib/tipos";
 
 // La respuesta de la API llega como eventos ("data: {...}"), en el mismo formato que manda la API de verdad
 function respuestaDeLaApi(...pedazos: string[]) {
@@ -11,6 +12,27 @@ function respuestaDeLaApi(...pedazos: string[]) {
     { type: "start-step" },
     { type: "text-start", id: "txt-0" },
     ...pedazos.map((delta) => ({ type: "text-delta", id: "txt-0", delta })),
+    { type: "text-end", id: "txt-0" },
+    { type: "finish-step" },
+    { type: "finish", finishReason: "stop" },
+  ];
+  const cuerpo = `${eventos.map((evento) => `data: ${JSON.stringify(evento)}\n\n`).join("")}data: [DONE]\n\n`;
+  return new Response(cuerpo, {
+    headers: { "Content-Type": "text/event-stream", "x-vercel-ai-ui-message-stream": "v1" },
+  });
+}
+
+// Una respuesta en que el asistente primero usa verHorariosLibres y después escribe
+function respuestaConHorarios(pedido: PedidoDeHorarios, horarios: HorariosLibres, texto: string) {
+  const eventos = [
+    { type: "start" },
+    { type: "start-step" },
+    { type: "tool-input-available", toolCallId: "llamada-1", toolName: "verHorariosLibres", input: pedido },
+    { type: "tool-output-available", toolCallId: "llamada-1", output: horarios },
+    { type: "finish-step" },
+    { type: "start-step" },
+    { type: "text-start", id: "txt-0" },
+    { type: "text-delta", id: "txt-0", delta: texto },
     { type: "text-end", id: "txt-0" },
     { type: "finish-step" },
     { type: "finish", finishReason: "stop" },
@@ -83,6 +105,33 @@ describe("Asistente", () => {
     expect(String((fetchFalso.mock.calls[0] as unknown as [string, RequestInit])[1].body)).toContain(SUGERENCIAS[0]);
     // El botón de la sugerencia desaparece, así que el cursor vuelve al campo (y Escape sigue cerrando el chat)
     expect(screen.getByLabelText("Escribe tu pregunta")).toHaveFocus();
+  });
+
+  it("muestra las horas libres que encontró el asistente, y al tocar una se la pide", async () => {
+    const horarios: HorariosLibres = {
+      horas: [{ hora: "19:00", precio: 16_000, canchas: ["Cancha 2", "Cancha 4"] }],
+      tusReservas: [],
+    };
+    const fetchFalso = simularApi(() =>
+      respuestaConHorarios({ fecha: "2026-10-23", desde: 19 }, horarios, "Mañana hay libres desde las 19:00."),
+    );
+    dibujar();
+
+    await userEvent.click(screen.getByRole("button", { name: SUGERENCIAS[0] }));
+
+    // Primero la tarjeta con las horas y después el texto, en el orden en que llegaron
+    const hora = await screen.findByRole("button", { name: "19:00, 2 canchas libres, $16.000" });
+    const texto = screen.getByText("Mañana hay libres desde las 19:00.");
+    expect(hora.compareDocumentPosition(texto) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await waitFor(() => expect(hora).toBeEnabled());
+    await userEvent.click(hora);
+
+    await waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(2));
+    const { messages } = JSON.parse(String((fetchFalso.mock.calls[1] as unknown as [string, RequestInit])[1].body));
+    expect(JSON.stringify(messages.at(-1))).toContain("Quiero reservar el viernes 23 de octubre a las 19:00");
+    // La conversación que se manda trae el resultado de la herramienta: así el asistente sabe de qué horas se habla
+    expect(JSON.stringify(messages)).toContain('"type":"tool-verHorariosLibres"');
   });
 
   it("si la API rechaza el mensaje, muestra su explicación en español", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mensajeDelError, textoDelMensaje } from "@/lib/asistente";
+import { mensajeDelError, pedidoDeHora } from "@/lib/asistente";
 
 describe("mensajeDelError", () => {
   it("muestra el mensaje que mandó la API cuando rechaza el pedido", () => {
@@ -18,18 +18,8 @@ describe("mensajeDelError", () => {
   });
 });
 
-describe("textoDelMensaje", () => {
-  it("junta las partes de texto y deja fuera las demás", () => {
-    const mensaje = {
-      id: "m1",
-      role: "assistant" as const,
-      parts: [
-        { type: "step-start" as const },
-        { type: "text" as const, text: "Abrimos " },
-        { type: "text" as const, text: "a las 08:00." },
-      ],
-    };
-
-    expect(textoDelMensaje(mensaje)).toBe("Abrimos a las 08:00.");
+describe("pedidoDeHora", () => {
+  it("es lo que se le escribe al asistente al tocar una hora libre, con el día completo", () => {
+    expect(pedidoDeHora("2026-10-23", "19:00")).toBe("Quiero reservar el viernes 23 de octubre a las 19:00");
   });
 });

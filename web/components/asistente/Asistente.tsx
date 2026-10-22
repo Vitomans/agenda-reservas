@@ -3,8 +3,16 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
-import { ID_DEL_BOTON, MAXIMO_CARACTERES, mensajeDelError, SUGERENCIAS, textoDelMensaje } from "@/lib/asistente";
+import {
+  ID_DEL_BOTON,
+  MAXIMO_CARACTERES,
+  type MensajeDelAsistente,
+  mensajeDelError,
+  pedidoDeHora,
+  SUGERENCIAS,
+} from "@/lib/asistente";
 import { Boton, Ruedita } from "../Boton";
+import { HorasLibres } from "./HorasLibres";
 
 // Los mensajes van a la API por el mismo puente que todo lo demás (web/proxy.ts), así viaja la cookie de sesión
 const transporte = new DefaultChatTransport({ api: "/api/asistente" });
@@ -24,7 +32,9 @@ function devolverElFoco() {
 //
 // useChat (del AI SDK) guarda los mensajes, los manda a la API y va agregando la respuesta a medida que llega.
 export function Asistente({ abierto, onCerrar }: Props) {
-  const { messages, sendMessage, status, error, stop, regenerate, clearError } = useChat({ transport: transporte });
+  const { messages, sendMessage, status, error, stop, regenerate, clearError } = useChat<MensajeDelAsistente>({
+    transport: transporte,
+  });
   const [texto, setTexto] = useState("");
   const conversacion = useRef<HTMLDivElement>(null);
   const campo = useRef<HTMLInputElement>(null);
@@ -106,7 +116,7 @@ export function Asistente({ abierto, onCerrar }: Props) {
         className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
       >
         <Burbuja de="asistente">
-          ¡Hola! Soy el asistente de Volea. Pregúntame por los precios, el horario o las reglas del club.
+          ¡Hola! Soy el asistente de Volea. Pregúntame qué horas quedan libres, los precios o las reglas del club.
         </Burbuja>
 
         {messages.length === 0 && (
@@ -124,14 +134,45 @@ export function Asistente({ abierto, onCerrar }: Props) {
           </div>
         )}
 
-        {messages.map((mensaje) => {
-          const contenido = textoDelMensaje(mensaje);
-          return contenido ? (
-            <Burbuja key={mensaje.id} de={mensaje.role === "user" ? "persona" : "asistente"}>
-              {contenido}
-            </Burbuja>
-          ) : null;
-        })}
+        {/* Un mensaje viene en partes, en el orden en que llegaron: texto, el uso de una herramienta, más texto... */}
+        {messages.map((mensaje, numero) =>
+          mensaje.parts.map((parte, i) => {
+            const clave = `${mensaje.id}-${i}`;
+            // El último mensaje, mientras el asistente lo sigue escribiendo
+            const respondiendo = ocupado && numero === messages.length - 1;
+
+            if (parte.type === "text") {
+              return parte.text ? (
+                <Burbuja key={clave} de={mensaje.role === "user" ? "persona" : "asistente"}>
+                  {parte.text}
+                </Burbuja>
+              ) : null;
+            }
+
+            if (parte.type === "tool-verHorariosLibres") {
+              if (parte.state === "output-available") {
+                return (
+                  <HorasLibres
+                    key={clave}
+                    pedido={parte.input}
+                    horarios={parte.output}
+                    onPedir={(hora) => enviar(pedidoDeHora(parte.input.fecha, hora))}
+                    deshabilitado={ocupado}
+                  />
+                );
+              }
+              // Mientras la API busca. Si falló, o la persona tocó "Detener", no se muestra nada:
+              // el asistente explica con palabras lo que pasó.
+              return respondiendo && parte.state !== "output-error" ? (
+                <p key={clave} className="flex items-center gap-2 text-sm text-slate-500">
+                  <Ruedita /> Buscando horarios…
+                </p>
+              ) : null;
+            }
+
+            return null;
+          }),
+        )}
 
         {status === "submitted" && (
           <p className="flex items-center gap-2 text-sm text-slate-500">

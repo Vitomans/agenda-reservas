@@ -75,6 +75,16 @@ export type Resumen = {
   horaMasPedida: { hora: string; reservas: number } | null; // en los últimos 30 días
 };
 
+// Lo que el asistente le pide a la herramienta verHorariosLibres, y lo que ella devuelve
+// (ver api/src/asistente/herramientas.ts). "desde" y "hasta" son horas: 19 = las 19:00.
+export type PedidoDeHorarios = { fecha: string; desde?: number; hasta?: number };
+
+export type HorariosLibres = {
+  horas: { hora: string; precio: number; canchas: string[] }[]; // las horas con alguna cancha libre, y los nombres de esas canchas
+  tusReservas: string[]; // las horas de ese día en que ya tienes una reserva
+  aviso?: string; // por qué no se buscó, por ejemplo si el día no se puede reservar
+};
+
 // Lo que trae cada aviso en vivo: qué cancha y qué horario cambió (ver api/src/tiempoReal.ts)
 export type CambioEnVivo = {
   recursoId: string;

@@ -1,6 +1,16 @@
-import type { UIMessage } from "ai";
+import type { UIDataTypes, UIMessage } from "ai";
+import { diaLargo } from "./fechas";
+import type { HorariosLibres, PedidoDeHorarios } from "./tipos";
 
 // Lo que la página necesita saber del asistente con IA (la parte de la IA está en la API: api/src/asistente).
+
+// Un mensaje de la conversación, con las herramientas que puede usar el asistente.
+// Así TypeScript sabe qué trae cada herramienta (por ejemplo, las horas libres para dibujar los botones).
+export type MensajeDelAsistente = UIMessage<
+  unknown,
+  UIDataTypes,
+  { verHorariosLibres: { input: PedidoDeHorarios; output: HorariosLibres } }
+>;
 
 // El mismo límite que revisa la API
 export const MAXIMO_CARACTERES = 500;
@@ -9,11 +19,11 @@ export const MAXIMO_CARACTERES = 500;
 export const ID_DEL_BOTON = "boton-del-asistente";
 
 // Preguntas para empezar, que el asistente ya sabe responder
-export const SUGERENCIAS = ["¿Cuánto cuesta una hora de cancha?", "¿Hasta qué hora abren?", "¿Puedo cancelar una reserva?"];
+export const SUGERENCIAS = ["¿Hay cancha mañana después de las 7?", "¿Cuánto cuesta una hora de cancha?", "¿Puedo cancelar una reserva?"];
 
-// El texto de un mensaje. Un mensaje viene en partes (texto, herramientas...); por ahora solo se muestra el texto.
-export function textoDelMensaje(mensaje: UIMessage) {
-  return mensaje.parts.map((parte) => (parte.type === "text" ? parte.text : "")).join("");
+// Lo que se le escribe al asistente al tocar una de las horas libres que mostró
+export function pedidoDeHora(fecha: string, hora: string) {
+  return `Quiero reservar el ${diaLargo(fecha)} a las ${hora}`;
 }
 
 // useChat entrega los errores de distintas formas. Esto los deja como un mensaje en español para mostrar:
