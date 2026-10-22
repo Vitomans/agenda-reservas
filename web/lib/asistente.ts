@@ -1,6 +1,6 @@
 import type { UIDataTypes, UIMessage } from "ai";
 import { diaLargo } from "./fechas";
-import type { HorariosLibres, PedidoDeHorarios } from "./tipos";
+import type { HorariosLibres, InformacionDelClub, PedidoDeHorarios, PedidoDeInformacion } from "./tipos";
 
 // Lo que la página necesita saber del asistente con IA (la parte de la IA está en la API: api/src/asistente).
 
@@ -9,7 +9,10 @@ import type { HorariosLibres, PedidoDeHorarios } from "./tipos";
 export type MensajeDelAsistente = UIMessage<
   unknown,
   UIDataTypes,
-  { verHorariosLibres: { input: PedidoDeHorarios; output: HorariosLibres } }
+  {
+    verHorariosLibres: { input: PedidoDeHorarios; output: HorariosLibres };
+    buscarInformacion: { input: PedidoDeInformacion; output: InformacionDelClub };
+  }
 >;
 
 // El mismo límite que revisa la API
@@ -19,7 +22,7 @@ export const MAXIMO_CARACTERES = 500;
 export const ID_DEL_BOTON = "boton-del-asistente";
 
 // Preguntas para empezar, que el asistente ya sabe responder
-export const SUGERENCIAS = ["¿Hay cancha mañana después de las 7?", "¿Cuánto cuesta una hora de cancha?", "¿Puedo cancelar una reserva?"];
+export const SUGERENCIAS = ["¿Hay cancha mañana después de las 7?", "¿Cuánto cuesta una hora de cancha?", "¿Arriendan paletas?"];
 
 // Lo que se le escribe al asistente al tocar una de las horas libres que mostró
 export function pedidoDeHora(fecha: string, hora: string) {

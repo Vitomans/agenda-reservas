@@ -12,6 +12,7 @@ import {
   SUGERENCIAS,
 } from "@/lib/asistente";
 import { Boton, Ruedita } from "../Boton";
+import { FuentesDelClub } from "./FuentesDelClub";
 import { HorasLibres } from "./HorasLibres";
 
 // Los mensajes van a la API por el mismo puente que todo lo demás (web/proxy.ts), así viaja la cookie de sesión
@@ -116,7 +117,8 @@ export function Asistente({ abierto, onCerrar }: Props) {
         className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
       >
         <Burbuja de="asistente">
-          ¡Hola! Soy el asistente de Volea. Pregúntame qué horas quedan libres, los precios o las reglas del club.
+          ¡Hola! Soy el asistente de Volea. Pregúntame qué horas quedan libres, los precios, los servicios o las reglas
+          del club.
         </Burbuja>
 
         {messages.length === 0 && (
@@ -164,9 +166,16 @@ export function Asistente({ abierto, onCerrar }: Props) {
               // Mientras la API busca. Si falló, o la persona tocó "Detener", no se muestra nada:
               // el asistente explica con palabras lo que pasó.
               return respondiendo && parte.state !== "output-error" ? (
-                <p key={clave} className="flex items-center gap-2 text-sm text-slate-500">
-                  <Ruedita /> Buscando horarios…
-                </p>
+                <Buscando key={clave}>Buscando horarios…</Buscando>
+              ) : null;
+            }
+
+            if (parte.type === "tool-buscarInformacion") {
+              if (parte.state === "output-available") {
+                return <FuentesDelClub key={clave} informacion={parte.output} />;
+              }
+              return respondiendo && parte.state !== "output-error" ? (
+                <Buscando key={clave}>Buscando en la información del club…</Buscando>
               ) : null;
             }
 
@@ -234,12 +243,20 @@ export function Asistente({ abierto, onCerrar }: Props) {
   );
 }
 
+function Buscando({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-center gap-2 text-sm text-slate-500">
+      <Ruedita /> {children}
+    </p>
+  );
+}
+
 function Burbuja({ de, children }: { de: "persona" | "asistente"; children: React.ReactNode }) {
   const dePersona = de === "persona";
   return (
     <div className={`flex ${dePersona ? "justify-end" : "justify-start"}`}>
       <p
-        className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
+        className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm break-words whitespace-pre-wrap ${
           dePersona ? "rounded-br-sm bg-blue-700 text-white" : "rounded-bl-sm bg-slate-100 text-slate-900"
         }`}
       >

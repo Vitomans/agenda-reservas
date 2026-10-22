@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Asistente } from "@/components/asistente/Asistente";
 import { MAXIMO_CARACTERES, SUGERENCIAS } from "@/lib/asistente";
-import type { HorariosLibres, PedidoDeHorarios } from "@/lib/tipos";
+import type { HorariosLibres, InformacionDelClub } from "@/lib/tipos";
 
 // La respuesta de la API llega como eventos ("data: {...}"), en el mismo formato que manda la API de verdad
 function respuestaDeLaApi(...pedazos: string[]) {
@@ -22,13 +22,13 @@ function respuestaDeLaApi(...pedazos: string[]) {
   });
 }
 
-// Una respuesta en que el asistente primero usa verHorariosLibres y después escribe
-function respuestaConHorarios(pedido: PedidoDeHorarios, horarios: HorariosLibres, texto: string) {
+// Una respuesta en que el asistente primero usa una herramienta y después escribe
+function respuestaConHerramienta(herramienta: string, pedido: object, resultado: object, texto: string) {
   const eventos = [
     { type: "start" },
     { type: "start-step" },
-    { type: "tool-input-available", toolCallId: "llamada-1", toolName: "verHorariosLibres", input: pedido },
-    { type: "tool-output-available", toolCallId: "llamada-1", output: horarios },
+    { type: "tool-input-available", toolCallId: "llamada-1", toolName: herramienta, input: pedido },
+    { type: "tool-output-available", toolCallId: "llamada-1", output: resultado },
     { type: "finish-step" },
     { type: "start-step" },
     { type: "text-start", id: "txt-0" },
@@ -113,7 +113,12 @@ describe("Asistente", () => {
       tusReservas: [],
     };
     const fetchFalso = simularApi(() =>
-      respuestaConHorarios({ fecha: "2026-10-23", desde: 19 }, horarios, "Mañana hay libres desde las 19:00."),
+      respuestaConHerramienta(
+        "verHorariosLibres",
+        { fecha: "2026-10-23", desde: 19 },
+        horarios,
+        "Mañana hay libres desde las 19:00.",
+      ),
     );
     dibujar();
 
@@ -132,6 +137,31 @@ describe("Asistente", () => {
     expect(JSON.stringify(messages.at(-1))).toContain("Quiero reservar el viernes 23 de octubre a las 19:00");
     // La conversación que se manda trae el resultado de la herramienta: así el asistente sabe de qué horas se habla
     expect(JSON.stringify(messages)).toContain('"type":"tool-verHorariosLibres"');
+  });
+
+  it("muestra de qué información del club sacó la respuesta", async () => {
+    const informacion: InformacionDelClub = {
+      fuentes: [{ id: "servicios#arriendo-de-paletas", documento: "Servicios del club", seccion: "Arriendo de paletas" }],
+      forma: "significado",
+    };
+    simularApi(() =>
+      respuestaConHerramienta(
+        "buscarInformacion",
+        { pregunta: "arriendo de paletas" },
+        informacion,
+        "Según los servicios del club, puedes arrendar una paleta a $3.000 por hora.",
+      ),
+    );
+    dibujar();
+
+    await userEvent.click(screen.getByRole("button", { name: "¿Arriendan paletas?" }));
+
+    expect(await screen.findByText(/puedes arrendar una paleta a \$3.000 por hora/)).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Consultó la información del club:" })).toHaveTextContent(
+      "Servicios del club · Arriendo de paletas",
+    );
+    // Cuando ya respondió, no queda el aviso de que está buscando
+    expect(screen.queryByText("Buscando en la información del club…")).not.toBeInTheDocument();
   });
 
   it("si la API rechaza el mensaje, muestra su explicación en español", async () => {

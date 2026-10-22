@@ -85,6 +85,15 @@ export type HorariosLibres = {
   aviso?: string; // por qué no se buscó, por ejemplo si el día no se puede reservar
 };
 
+// Lo que el asistente le pide a la herramienta buscarInformacion, y lo que ella devuelve: de qué documentos
+// y secciones del club sacó la información. El texto de cada sección lo lee solo la IA, en la API.
+export type PedidoDeInformacion = { pregunta: string };
+
+export type InformacionDelClub = {
+  fuentes: { id: string; documento: string; seccion: string }[];
+  forma: "significado" | "palabras"; // cómo buscó: por significado (con Gemini) o por palabras (el respaldo)
+};
+
 // Lo que trae cada aviso en vivo: qué cancha y qué horario cambió (ver api/src/tiempoReal.ts)
 export type CambioEnVivo = {
   recursoId: string;
