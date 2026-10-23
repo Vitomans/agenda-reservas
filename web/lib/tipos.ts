@@ -94,6 +94,27 @@ export type InformacionDelClub = {
   forma: "significado" | "palabras"; // cómo buscó: por significado (con Gemini) o por palabras (el respaldo)
 };
 
+// Una reserva como la muestra el asistente (ver api/src/asistente/reservas.ts)
+export type ReservaDelChat = {
+  id: string;
+  cancha: string;
+  fecha: string; // "AAAA-MM-DD"
+  hora: string; // por ejemplo "19:00", en la hora del club
+  precio: number;
+};
+
+// Lo que el asistente le pide a la herramienta reservar ("hora": 19 = las 19:00), y lo que ella devuelve:
+// la reserva hecha, o por qué no se pudo
+export type PedidoDeReserva = { fecha: string; hora: number; cancha: string };
+export type ResultadoDeReserva = { reserva?: ReservaDelChat; aviso?: string };
+
+// Lo que devuelve verMisReservas: las próximas reservas de quien conversa
+export type MisReservasDelChat = { reservas: ReservaDelChat[]; aviso?: string };
+
+// Lo que el asistente le pide a la herramienta cancelarReserva, y lo que ella devuelve
+export type PedidoDeCancelacion = { reservaId: string };
+export type ResultadoDeCancelacion = { cancelada?: ReservaDelChat; aviso?: string };
+
 // Lo que trae cada aviso en vivo: qué cancha y qué horario cambió (ver api/src/tiempoReal.ts)
 export type CambioEnVivo = {
   recursoId: string;

@@ -1,19 +1,28 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
 import {
+  cambiaronLasReservas,
+  debeEnviarseSolo,
+  estadoDeLaTarjeta,
   ID_DEL_BOTON,
   MAXIMO_CARACTERES,
   type MensajeDelAsistente,
   mensajeDelError,
+  pedidoDeCancelacion,
   pedidoDeHora,
+  reservasCanceladas,
   SUGERENCIAS,
 } from "@/lib/asistente";
+import { claves, useEntrarComoInvitado } from "@/lib/consultas";
 import { Boton, Ruedita } from "../Boton";
 import { FuentesDelClub } from "./FuentesDelClub";
 import { HorasLibres } from "./HorasLibres";
+import { ReservasDelChat } from "./ReservasDelChat";
+import { TarjetaDeConfirmacion } from "./TarjetaDeConfirmacion";
 
 // Los mensajes van a la API por el mismo puente que todo lo demás (web/proxy.ts), así viaja la cookie de sesión
 const transporte = new DefaultChatTransport({ api: "/api/asistente" });
@@ -21,6 +30,8 @@ const transporte = new DefaultChatTransport({ api: "/api/asistente" });
 type Props = {
   abierto: boolean;
   onCerrar: () => void;
+  // Sin sesión, al confirmar una reserva primero se crea un jugador invitado (como en la barra para reservar)
+  conSesion: boolean;
 };
 
 // Al cerrar el chat, el foco del teclado vuelve al botón que lo abrió
@@ -32,10 +43,23 @@ function devolverElFoco() {
 // Sigue montado aunque esté cerrado (solo no se dibuja), para no perder la conversación al cerrarlo.
 //
 // useChat (del AI SDK) guarda los mensajes, los manda a la API y va agregando la respuesta a medida que llega.
-export function Asistente({ abierto, onCerrar }: Props) {
-  const { messages, sendMessage, status, error, stop, regenerate, clearError } = useChat<MensajeDelAsistente>({
-    transport: transporte,
-  });
+export function Asistente({ abierto, onCerrar, conSesion }: Props) {
+  const queryClient = useQueryClient();
+  const entrarComoInvitado = useEntrarComoInvitado();
+  const { messages, sendMessage, status, error, stop, regenerate, clearError, addToolApprovalResponse } =
+    useChat<MensajeDelAsistente>({
+      transport: transporte,
+      // Al tocar "Confirmar" en una tarjeta, la conversación se manda sola para que la API haga la reserva
+      sendAutomaticallyWhen: debeEnviarseSolo,
+      // Si el asistente reservó o canceló, la grilla y "Mis reservas" se vuelven a pedir. En las pantallas de
+      // los demás, la grilla se actualiza por el aviso en vivo, igual que al reservar en la grilla.
+      onFinish: ({ message }) => {
+        if (cambiaronLasReservas(message)) {
+          void queryClient.invalidateQueries({ queryKey: claves.disponibilidad });
+          void queryClient.invalidateQueries({ queryKey: claves.misReservas });
+        }
+      },
+    });
   const [texto, setTexto] = useState("");
   const conversacion = useRef<HTMLDivElement>(null);
   const campo = useRef<HTMLInputElement>(null);
@@ -68,6 +92,8 @@ export function Asistente({ abierto, onCerrar }: Props) {
 
   if (!abierto) return null;
 
+  const canceladas = reservasCanceladas(messages);
+
   function enviar(pregunta: string) {
     const limpia = pregunta.trim();
     if (!limpia || ocupado) return;
@@ -81,6 +107,20 @@ export function Asistente({ abierto, onCerrar }: Props) {
   function cerrar() {
     onCerrar();
     devolverElFoco();
+  }
+
+  // La respuesta a una tarjeta para confirmar. Sin sesión, antes de confirmar se crea el jugador invitado:
+  // así la cookie de sesión ya va en el pedido que hace la reserva.
+  async function responderTarjeta(idDeLaConfirmacion: string, confirma: boolean) {
+    if (confirma && !conSesion) {
+      try {
+        await entrarComoInvitado.mutateAsync();
+      } catch {
+        return; // el error se muestra abajo (entrarComoInvitado.error)
+      }
+    }
+    clearError();
+    void addToolApprovalResponse({ id: idDeLaConfirmacion, approved: confirma });
   }
 
   return (
@@ -117,8 +157,8 @@ export function Asistente({ abierto, onCerrar }: Props) {
         className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
       >
         <Burbuja de="asistente">
-          ¡Hola! Soy el asistente de Volea. Pregúntame qué horas quedan libres, los precios, los servicios o las reglas
-          del club.
+          ¡Hola! Soy el asistente de Volea. Te busco una hora libre y te la reservo, o te cuento de los precios, los
+          servicios y las reglas del club.
         </Burbuja>
 
         {messages.length === 0 && (
@@ -179,6 +219,51 @@ export function Asistente({ abierto, onCerrar }: Props) {
               ) : null;
             }
 
+            if (parte.type === "tool-verMisReservas") {
+              if (parte.state === "output-available") {
+                return (
+                  <ReservasDelChat
+                    key={clave}
+                    misReservas={parte.output}
+                    canceladas={canceladas}
+                    onCancelar={(reserva) => enviar(pedidoDeCancelacion(reserva))}
+                    deshabilitado={ocupado}
+                  />
+                );
+              }
+              return respondiendo && parte.state !== "output-error" ? (
+                <Buscando key={clave}>Buscando tus reservas…</Buscando>
+              ) : null;
+            }
+
+            if (parte.type === "tool-reservar" || parte.type === "tool-cancelarReserva") {
+              const accion = parte.type === "tool-reservar" ? "reservar" : "cancelar";
+              const estado = estadoDeLaTarjeta(parte, {
+                esElUltimo: numero === messages.length - 1,
+                respondiendo,
+                fallo: error !== undefined,
+              });
+              if (estado === null) return null;
+              if (estado === "revisando") {
+                return <Buscando key={clave}>{accion === "reservar" ? "Revisando la reserva…" : "Revisando la cancelación…"}</Buscando>;
+              }
+              // La confirmación que pidió la API: su id es lo que se le responde, y su texto es lo que dice la tarjeta
+              const confirmacion = parte.approval;
+              return (
+                <TarjetaDeConfirmacion
+                  key={clave}
+                  accion={accion}
+                  estado={estado}
+                  descripcion={confirmacion?.requestReason}
+                  conSesion={conSesion}
+                  ocupado={ocupado || entrarComoInvitado.isPending}
+                  onResponder={(confirma) => {
+                    if (confirmacion) void responderTarjeta(confirmacion.id, confirma);
+                  }}
+                />
+              );
+            }
+
             return null;
           }),
         )}
@@ -187,6 +272,12 @@ export function Asistente({ abierto, onCerrar }: Props) {
           <p className="flex items-center gap-2 text-sm text-slate-500">
             <Ruedita /> Escribiendo…
           </p>
+        )}
+
+        {entrarComoInvitado.error && (
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {entrarComoInvitado.error.message}
+          </div>
         )}
 
         {error && (

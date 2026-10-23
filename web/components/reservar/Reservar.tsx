@@ -268,7 +268,7 @@ export function Reservar() {
         />
       )}
 
-      <Asistente abierto={asistenteAbierto} onCerrar={() => setAsistenteAbierto(false)} />
+      <Asistente abierto={asistenteAbierto} onCerrar={() => setAsistenteAbierto(false)} conSesion={usuario !== null} />
     </div>
   );
 }
