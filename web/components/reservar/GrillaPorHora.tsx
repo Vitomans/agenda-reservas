@@ -31,6 +31,7 @@ export function GrillaPorHora({ horas, elegida, onElegir, resaltados = [] }: Pro
           <li key={hora.inicio}>
             <button
               type="button"
+              data-hora={hora.hora}
               disabled={!sePuedeElegir}
               aria-pressed={sePuedeElegir ? estaElegida : undefined}
               // Así un lector de pantalla dice "19:00, 3 canchas libres, $16.000"

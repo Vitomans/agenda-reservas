@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  cambiaronLasReservas,
   debeEnviarseSolo,
   errorDelAsistente,
   estadoDeLaTarjeta,
@@ -8,6 +7,7 @@ import {
   type ParteQueConfirma,
   pedidoDeCancelacion,
   pedidoDeHora,
+  reservaQueCambio,
   reservasCanceladas,
 } from "@/lib/asistente";
 
@@ -113,8 +113,8 @@ describe("debeEnviarseSolo", () => {
   });
 });
 
-describe("cambiaronLasReservas", () => {
-  it("es true si el mensaje trae una reserva hecha o una cancelación hecha", () => {
+describe("reservaQueCambio", () => {
+  it("devuelve la reserva hecha o la cancelada, y nada si no se pudo o todavía se está pidiendo", () => {
     const hecha = parte({ state: "output-available", output: { reserva: RESERVA }, approval: { id: "c-1", approved: true } });
     const noSePudo = parte({ state: "output-available", output: { aviso: "No" }, approval: { id: "c-1", approved: true } });
     const cancelada = {
@@ -125,10 +125,18 @@ describe("cambiaronLasReservas", () => {
       output: { cancelada: RESERVA },
     } as ParteQueConfirma;
 
-    expect(cambiaronLasReservas(delAsistente(hecha))).toBe(true);
-    expect(cambiaronLasReservas(delAsistente(cancelada))).toBe(true);
-    expect(cambiaronLasReservas(delAsistente(noSePudo))).toBe(false);
-    expect(cambiaronLasReservas(delAsistente(pidiendo))).toBe(false);
+    expect(reservaQueCambio(delAsistente(hecha))).toEqual(RESERVA);
+    expect(reservaQueCambio(delAsistente(cancelada))).toEqual(RESERVA);
+    expect(reservaQueCambio(delAsistente(noSePudo))).toBeUndefined();
+    expect(reservaQueCambio(delAsistente(pidiendo))).toBeUndefined();
+  });
+
+  it("si en el mismo mensaje cambiaron dos, devuelve la última", () => {
+    const otra = { ...RESERVA, id: "r-2", hora: "20:00" };
+    const primera = parte({ state: "output-available", output: { reserva: RESERVA }, approval: { id: "c-1", approved: true } });
+    const segunda = parte({ state: "output-available", output: { reserva: otra }, approval: { id: "c-2", approved: true } });
+
+    expect(reservaQueCambio(delAsistente(primera, segunda))).toEqual(otra);
   });
 });
 

@@ -119,13 +119,16 @@ export function reservasCanceladas(mensajes: MensajeDelAsistente[]) {
   );
 }
 
-// Si en ese mensaje el asistente reservó o canceló algo. Entonces la grilla y "Mis reservas" se vuelven a pedir.
-export function cambiaronLasReservas(mensaje: MensajeDelAsistente) {
-  return mensaje.parts.some(
-    (parte) =>
-      (parte.type === "tool-reservar" && parte.state === "output-available" && parte.output.reserva !== undefined) ||
-      (parte.type === "tool-cancelarReserva" && parte.state === "output-available" && parte.output.cancelada !== undefined),
-  );
+// La reserva que el asistente hizo o canceló en ese mensaje (la última, si fueron varias), o undefined si no
+// cambió nada. Entonces la grilla y "Mis reservas" se vuelven a pedir, y la grilla salta a ese día y esa hora.
+export function reservaQueCambio(mensaje: MensajeDelAsistente): ReservaDelChat | undefined {
+  return mensaje.parts
+    .map((parte) => {
+      if (parte.type === "tool-reservar" && parte.state === "output-available") return parte.output.reserva;
+      if (parte.type === "tool-cancelarReserva" && parte.state === "output-available") return parte.output.cancelada;
+      return undefined;
+    })
+    .findLast((reserva) => reserva !== undefined);
 }
 
 // useChat entrega los errores de distintas formas. Esto los deja como un mensaje en español para mostrar,

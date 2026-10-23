@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useCambiosEnVivo } from "@/lib/cambios";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { DURACION_AVISO_MS, useCambiosEnVivo } from "@/lib/cambios";
 import { buscarCasilla, casillasDeLaCancha, casillasDelClub, type Eleccion } from "@/lib/casillas";
 import {
   useDisponibilidad,
@@ -16,7 +16,7 @@ import {
 import { formatearPesos } from "@/lib/dinero";
 import { describirHorario, diaLargo } from "@/lib/fechas";
 import { useTiempoReal } from "@/lib/tiempoReal";
-import type { Reserva } from "@/lib/tipos";
+import type { Reserva, ReservaDelChat } from "@/lib/tipos";
 import { Asistente } from "../asistente/Asistente";
 import { Aviso, Cargando } from "../Aviso";
 import { VistaDelCorreo } from "../VistaDelCorreo";
@@ -45,6 +45,8 @@ export function Reservar() {
   const [reservaHecha, setReservaHecha] = useState<Reserva | null>(null);
   const [viendoCorreo, setViendoCorreo] = useState(false);
   const [asistenteAbierto, setAsistenteAbierto] = useState(false);
+  // Lo último que reservó o canceló el asistente con IA: la grilla muestra esa hora por unos segundos
+  const [delAsistente, setDelAsistente] = useState<ReservaDelChat | null>(null);
 
   // Si no se eligió nada (o lo elegido ya no está, por ejemplo al cambiar el día a medianoche),
   // se usa la primera cancha y el día de hoy
@@ -74,6 +76,35 @@ export function Reservar() {
   const elegidaLibre = casillaElegida?.estado === "libre" ? casillaElegida : undefined;
   // Lo elegido, si otra persona lo reservó mientras se decidía
   const elegidaTomada = casillaElegida?.estado === "ocupado" ? casillaElegida : undefined;
+
+  // La hora que el asistente acaba de reservar o cancelar, si se está mirando ese día: destella como un cambio en vivo
+  const horaDelAsistente =
+    delAsistente && delAsistente.fecha === dia
+      ? (casillas ?? []).filter((casilla) => casilla.hora === delAsistente.hora).map((casilla) => casilla.inicio)
+      : [];
+  const resaltados = [...cambios.map((cambio) => cambio.inicio), ...horaDelAsistente];
+
+  // El destello dura lo mismo que el aviso de los cambios en vivo
+  useEffect(() => {
+    if (!delAsistente) return;
+    const temporizador = setTimeout(() => setDelAsistente(null), DURACION_AVISO_MS);
+    return () => clearTimeout(temporizador);
+  }, [delAsistente]);
+
+  // Cuando la grilla ya tiene esa hora, si no se ve entera, la página la deja al medio de la pantalla (una sola vez)
+  const grilla = useRef<HTMLElement>(null);
+  const yaSeMostro = useRef<ReservaDelChat | null>(null);
+  const hayQueMostrar = horaDelAsistente.length > 0;
+  useEffect(() => {
+    if (!delAsistente || !hayQueMostrar || yaSeMostro.current === delAsistente) return;
+    const boton = grilla.current?.querySelector(`[data-hora="${delAsistente.hora}"]`);
+    if (!boton) return;
+    yaSeMostro.current = delAsistente;
+    const { top, bottom } = boton.getBoundingClientRect();
+    if (top >= 0 && bottom <= window.innerHeight) return;
+    const menosMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    boton.scrollIntoView({ block: "center", behavior: menosMovimiento ? "auto" : "smooth" });
+  }, [delAsistente, hayQueMostrar]);
 
   if (horario.isPending || recursos.isPending) {
     return <Cargando />;
@@ -105,6 +136,15 @@ export function Reservar() {
     setReservaHecha(null);
     reservar.reset();
     entrarComoInvitado.reset();
+  }
+
+  // El asistente reservó o canceló algo: la grilla salta a ese día y a esa cancha (en la vista por hora, solo al día)
+  function mostrarLoDelAsistente(reserva: ReservaDelChat) {
+    empezarDeNuevo();
+    setDiaElegido(reserva.fecha);
+    const cancha = recursos.data?.find((r) => r.nombre === reserva.cancha);
+    if (cancha) setRecursoElegido(cancha.id);
+    setDelAsistente(reserva);
   }
 
   async function confirmar() {
@@ -190,7 +230,7 @@ export function Reservar() {
         </Aviso>
       )}
 
-      <section aria-labelledby="titulo-horarios" className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+      <section ref={grilla} aria-labelledby="titulo-horarios" className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <h2 id="titulo-horarios" className="font-semibold first-letter:uppercase">
@@ -233,7 +273,7 @@ export function Reservar() {
           <GrillaDeHorarios
             bloques={bloquesQueVienen}
             elegido={elegidaLibre?.inicio ?? null}
-            resaltados={cambios.map((cambio) => cambio.inicio)}
+            resaltados={resaltados}
             onElegir={(bloque) => {
               empezarDeNuevo();
               setEleccion({ recursoId: recurso.id, inicio: bloque.inicio });
@@ -243,7 +283,7 @@ export function Reservar() {
           <GrillaPorHora
             horas={horasQueVienen}
             elegida={elegidaLibre?.inicio ?? null}
-            resaltados={cambios.map((cambio) => cambio.inicio)}
+            resaltados={resaltados}
             onElegir={(hora) => {
               empezarDeNuevo();
               // Se elige la primera cancha libre; en la barra se puede cambiar
@@ -268,7 +308,12 @@ export function Reservar() {
         />
       )}
 
-      <Asistente abierto={asistenteAbierto} onCerrar={() => setAsistenteAbierto(false)} conSesion={usuario !== null} />
+      <Asistente
+        abierto={asistenteAbierto}
+        onCerrar={() => setAsistenteAbierto(false)}
+        conSesion={usuario !== null}
+        onCambioDeReserva={mostrarLoDelAsistente}
+      />
     </div>
   );
 }

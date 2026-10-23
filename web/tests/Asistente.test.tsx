@@ -108,13 +108,14 @@ function simularCelular() {
 
 function dibujar({ abierto = true, conSesion = true } = {}) {
   const onCerrar = vi.fn();
+  const onCambioDeReserva = vi.fn();
   const queryClient = new QueryClient();
   render(
     <QueryClientProvider client={queryClient}>
-      <Asistente abierto={abierto} onCerrar={onCerrar} conSesion={conSesion} />
+      <Asistente abierto={abierto} onCerrar={onCerrar} conSesion={conSesion} onCambioDeReserva={onCambioDeReserva} />
     </QueryClientProvider>,
   );
-  return { onCerrar, queryClient };
+  return { onCerrar, onCambioDeReserva, queryClient };
 }
 
 afterEach(() => {
@@ -332,7 +333,7 @@ describe("Asistente", () => {
 describe("reservar y cancelar por el chat", () => {
   it("muestra la tarjeta con lo que armó la API, y al tocar Confirmar la manda sola y muestra la reserva hecha", async () => {
     const fetchFalso = simularConversacion(respuestaConTarjeta, respuestaConLaReservaHecha);
-    const { queryClient } = dibujar();
+    const { queryClient, onCambioDeReserva } = dibujar();
     const invalidar = vi.spyOn(queryClient, "invalidateQueries");
 
     const tarjeta = await pedirUnaReserva();
@@ -350,11 +351,13 @@ describe("reservar y cancelar por el chat", () => {
     // La grilla y "Mis reservas" se vuelven a pedir, para que aparezca la reserva nueva
     await waitFor(() => expect(invalidar).toHaveBeenCalledWith({ queryKey: ["disponibilidad"] }));
     expect(invalidar).toHaveBeenCalledWith({ queryKey: ["mis-reservas"] });
+    // Y la página recibe la reserva, para mostrar esa hora en la grilla
+    expect(onCambioDeReserva).toHaveBeenCalledWith(RESERVA);
   });
 
   it("'No, gracias' no le pregunta nada a la API, y la tarjeta dice que no se reservó", async () => {
     const fetchFalso = simularConversacion(respuestaConTarjeta);
-    dibujar();
+    const { onCambioDeReserva } = dibujar();
 
     await pedirUnaReserva();
     await userEvent.click(screen.getByRole("button", { name: "No, gracias" }));
@@ -362,6 +365,7 @@ describe("reservar y cancelar por el chat", () => {
     expect(await screen.findByRole("group", { name: "No la reservaste" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
     expect(fetchFalso).toHaveBeenCalledTimes(1);
+    expect(onCambioDeReserva).not.toHaveBeenCalled();
   });
 
   it("sin sesión, 'Reservar como invitado' primero crea el jugador invitado y después confirma", async () => {

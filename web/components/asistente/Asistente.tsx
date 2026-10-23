@@ -5,7 +5,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
-  cambiaronLasReservas,
   debeEnviarseSolo,
   errorDelAsistente,
   estadoDeLaTarjeta,
@@ -14,10 +13,12 @@ import {
   type MensajeDelAsistente,
   pedidoDeCancelacion,
   pedidoDeHora,
+  reservaQueCambio,
   reservasCanceladas,
   SUGERENCIAS,
 } from "@/lib/asistente";
 import { claves, useEntrarComoInvitado } from "@/lib/consultas";
+import type { ReservaDelChat } from "@/lib/tipos";
 import { Boton, Ruedita } from "../Boton";
 import { LineasDeCancha } from "../LineasDeCancha";
 import { Pelota } from "../Logo";
@@ -35,6 +36,8 @@ type Props = {
   onCerrar: () => void;
   // Sin sesión, al confirmar una reserva primero se crea un jugador invitado (como en la barra para reservar)
   conSesion: boolean;
+  // Cuando el asistente reserva o cancela algo: la página muestra esa hora en la grilla
+  onCambioDeReserva?: (reserva: ReservaDelChat) => void;
 };
 
 // Al cerrar el chat, el foco del teclado vuelve al botón que lo abrió
@@ -67,20 +70,27 @@ function usePantallaAngosta() {
 // Sigue montado aunque esté cerrado (solo no se dibuja), para no perder la conversación al cerrarlo.
 //
 // useChat (del AI SDK) guarda los mensajes, los manda a la API y va agregando la respuesta a medida que llega.
-export function Asistente({ abierto, onCerrar, conSesion }: Props) {
+export function Asistente({ abierto, onCerrar, conSesion, onCambioDeReserva }: Props) {
   const queryClient = useQueryClient();
   const entrarComoInvitado = useEntrarComoInvitado();
+  // useChat guarda las funciones que recibe al empezar: con una referencia, onFinish usa siempre la más nueva
+  const avisarCambio = useRef(onCambioDeReserva);
+  useEffect(() => {
+    avisarCambio.current = onCambioDeReserva;
+  });
   const { messages, sendMessage, status, error, stop, regenerate, clearError, addToolApprovalResponse } =
     useChat<MensajeDelAsistente>({
       transport: transporte,
       // Al tocar "Confirmar" en una tarjeta, la conversación se manda sola para que la API haga la reserva
       sendAutomaticallyWhen: debeEnviarseSolo,
-      // Si el asistente reservó o canceló, la grilla y "Mis reservas" se vuelven a pedir. En las pantallas de
-      // los demás, la grilla se actualiza por el aviso en vivo, igual que al reservar en la grilla.
+      // Si el asistente reservó o canceló, la grilla y "Mis reservas" se vuelven a pedir, y la página muestra esa
+      // hora. En las pantallas de los demás, la grilla se actualiza por el aviso en vivo, como al reservar en la grilla.
       onFinish: ({ message }) => {
-        if (cambiaronLasReservas(message)) {
+        const reserva = reservaQueCambio(message);
+        if (reserva) {
           void queryClient.invalidateQueries({ queryKey: claves.disponibilidad });
           void queryClient.invalidateQueries({ queryKey: claves.misReservas });
+          avisarCambio.current?.(reserva);
         }
       },
     });

@@ -51,6 +51,7 @@ export function GrillaDeHorarios({ bloques, elegido, onElegir, resaltados = [] }
           <li key={bloque.inicio}>
             <button
               type="button"
+              data-hora={bloque.hora}
               disabled={bloque.estado !== "libre"}
               aria-pressed={bloque.estado === "libre" ? estaElegido : undefined}
               // Así un lector de pantalla dice "09:00, Libre, $12.000" y no junta los textos
