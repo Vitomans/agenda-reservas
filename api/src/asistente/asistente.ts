@@ -2,6 +2,7 @@ import { type EmbeddingModel, isStepCount, type LanguageModel, ToolLoopAgent } f
 import type { Cartero } from "../cartero.ts";
 import type { UsuarioSesion } from "../servicios/sesion.ts";
 import type { Avisador } from "../tiempoReal.ts";
+import type { Paso } from "./gasto.ts";
 import { crearHerramientas } from "./herramientas.ts";
 import { instrucciones } from "./instrucciones.ts";
 import { confirmacionesDeReservas } from "./reservas.ts";
@@ -20,6 +21,7 @@ const MAXIMO_TOKENS_DE_RESPUESTA = 800;
 // y las herramientas, el usuario de la sesión (undefined si la persona no entró).
 // "modeloDeVectores" es el que busca en la información del club por significado (ver conocimiento.ts),
 // y "avisador" y "cartero", los que avisan en vivo y envían el correo al reservar o cancelar.
+// "alTerminar" recibe los pasos de la respuesta, con los tokens que gastó cada uno (ver gasto.ts).
 export function crearAsistente(
   modelo: LanguageModel,
   {
@@ -28,12 +30,14 @@ export function crearAsistente(
     avisador,
     cartero,
     ahora = new Date(),
+    alTerminar,
   }: {
     usuario?: UsuarioSesion;
     modeloDeVectores?: EmbeddingModel | null;
     avisador?: Avisador;
     cartero?: Cartero;
     ahora?: Date;
+    alTerminar?: (pasos: Paso[]) => void;
   } = {},
 ) {
   return new ToolLoopAgent({
@@ -44,8 +48,13 @@ export function crearAsistente(
     toolApproval: confirmacionesDeReservas(usuario),
     stopWhen: isStepCount(MAXIMO_PASOS),
     maxOutputTokens: MAXIMO_TOKENS_DE_RESPUESTA,
-    // gpt-oss "razona" antes de responder, y ese razonamiento también gasta tokens.
+    // Los modelos "razonan" antes de responder, y ese razonamiento también gasta tokens.
     // Para responder sobre un club de pádel basta con poco (y así responde más rápido).
-    providerOptions: { groq: { reasoningEffort: "low" } },
+    // El AI SDK lo traduce para cada proveedor (en Groq, reasoning_effort; en Gemini, thinkingLevel).
+    reasoning: "low",
+    // Si un modelo falla, el AI SDK no reintenta (por defecto lo hace 2 veces, esperando entre medio):
+    // la cadena de respaldo le pregunta de inmediato al siguiente modelo (ver respaldo.ts)
+    maxRetries: 0,
+    onEnd: alTerminar ? ({ steps }) => alTerminar(steps) : undefined,
   });
 }

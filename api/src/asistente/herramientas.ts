@@ -6,7 +6,7 @@ import { disponibilidadDelClub } from "../servicios/reservas.ts";
 import { sinAvisos } from "../tiempoReal.ts";
 import { buscarEnElClub, pedazoPorId } from "./conocimiento.ts";
 import { type ContextoDeReservas, crearHerramientasDeReservas } from "./reservas.ts";
-import { horaEnPunto, nombreDelDia, pesos } from "./textos.ts";
+import { esquemaDeFecha, horaEnPunto, nombreDelDia, pesos } from "./textos.ts";
 
 // Las herramientas: lo que la IA le puede pedir a la API mientras conversa.
 //
@@ -15,7 +15,7 @@ import { horaEnPunto, nombreDelDia, pesos } from "./textos.ts";
 // Las funciones usan los mismos servicios que la página, así que la IA ve lo mismo que vería la persona.
 
 const esquemaPedidoDeHorarios = z.object({
-  fecha: z.iso.date().describe("El día, en formato AAAA-MM-DD"),
+  fecha: esquemaDeFecha,
   desde: z
     .number()
     .int()

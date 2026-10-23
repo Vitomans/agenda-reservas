@@ -3,18 +3,21 @@ import type { Request, RequestHandler } from "express";
 import { ErrorHttp } from "./errores.ts";
 
 // La API publicada solo atiende los pedidos que llegan por la página (el puente de web/proxy.ts).
-// El puente les agrega dos cabeceras: una clave que solo conocen la página y la API, y la IP del visitante.
+// El puente les agrega tres cabeceras: una clave que solo conocen la página y la API, la IP del visitante
+// y su país (el asistente no usa Gemini con los visitantes de algunos países, ver asistente/modelos.ts).
 //
 // Sin esto, cualquiera podría llamar a la API directo, sin pasar por la página, e inventar una IP
 // distinta en cada pedido para saltarse el límite de intentos del login.
 
 export const CABECERA_CLAVE = "x-clave-de-la-web";
 export const CABECERA_IP = "x-ip-del-visitante";
+export const CABECERA_PAIS = "x-pais-del-visitante";
 
-// Le agrega a "req" la IP que mandó la página, para que TypeScript la conozca
+// Le agrega a "req" la IP y el país que mandó la página, para que TypeScript los conozca
 declare module "express-serve-static-core" {
   interface Request {
     ipDelVisitante?: string;
+    paisDelVisitante?: string;
   }
 }
 
@@ -40,8 +43,10 @@ export function soloDesdeLaWeb(clave: string | undefined): RequestHandler {
       throw new ErrorHttp(403, "Esta API solo atiende los pedidos que llegan desde la página de Volea");
     }
 
-    // La cabecera de la IP solo se cree si vino con la clave: el puente la pone y borra la que mande el visitante
+    // Las cabeceras de la IP y el país solo se creen si vinieron con la clave: el puente las pone
+    // y borra las que mande el visitante
     req.ipDelVisitante = req.get(CABECERA_IP) || undefined;
+    req.paisDelVisitante = req.get(CABECERA_PAIS) || undefined;
     next();
   };
 }

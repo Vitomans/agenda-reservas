@@ -10,7 +10,7 @@ import { precioDelBloque } from "../servicios/precios.ts";
 import { cancelarReserva, crearReserva, MAXIMO_RESERVAS_ACTIVAS, reservasProximas } from "../servicios/reservas.ts";
 import type { UsuarioSesion } from "../servicios/sesion.ts";
 import type { Avisador } from "../tiempoReal.ts";
-import { horaEnPunto, nombreDelDia, pesos } from "./textos.ts";
+import { esquemaDeFecha, horaEnPunto, nombreDelDia, pesos } from "./textos.ts";
 
 // Las herramientas que cambian datos: reservar y cancelar.
 //
@@ -59,7 +59,7 @@ export function describirReserva({ cancha, fecha, hora, precio }: Omit<ReservaDe
 // ---------- reservar ----------
 
 const esquemaPedidoDeReserva = z.object({
-  fecha: z.iso.date().describe("El día, en formato AAAA-MM-DD"),
+  fecha: esquemaDeFecha,
   hora: z.number().int().min(0).max(23).describe("La hora en que empieza. Por ejemplo, 19 para las 19:00"),
   cancha: z.string().min(1).max(60).describe("El nombre de la cancha, como lo da verHorariosLibres. Por ejemplo: Cancha 2"),
 });

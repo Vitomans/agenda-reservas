@@ -75,7 +75,7 @@ describe("reservar por el chat", () => {
     const cancha = await crearCanchaDePrueba();
     const pedido = { fecha: dia(1), hora: 10, cancha: cancha.nombre };
     const modelo = modeloQuePide("reservar", pedido);
-    const app = crearApp({ modelo });
+    const app = crearApp({ modelos: [modelo] });
     const ana = await entrarComoJugadorNuevo(app);
 
     const respuesta = await escribirle(app, [mensajeDeLaPersona("Resérvame mañana a las 10")], ana.navegador);
@@ -95,7 +95,7 @@ describe("reservar por el chat", () => {
     const pedido = { fecha: dia(1), hora: 10, cancha: cancha.nombre };
     const modelo = modeloQuePide("reservar", pedido, "¡Listo, quedó reservada!");
     const avisador = avisadorFalso();
-    const app = crearApp({ modelo, avisador });
+    const app = crearApp({ modelos: [modelo], avisador });
     const ana = await entrarComoJugadorNuevo(app);
     const pregunta = mensajeDeLaPersona("Resérvame mañana a las 10");
 
@@ -124,7 +124,7 @@ describe("reservar por el chat", () => {
     const cancha = await crearCanchaDePrueba();
     const pedido = { fecha: dia(1), hora: 10, cancha: cancha.nombre };
     const modelo = modeloQuePide("reservar", pedido, "Bueno, no la reservo.");
-    const app = crearApp({ modelo });
+    const app = crearApp({ modelos: [modelo] });
     const ana = await entrarComoJugadorNuevo(app);
 
     const respuesta = await escribirle(
@@ -141,7 +141,7 @@ describe("reservar por el chat", () => {
   it("sin sesión también muestra la tarjeta, y al confirmar como invitado reserva a nombre del invitado", async () => {
     const cancha = await crearCanchaDePrueba();
     const pedido = { fecha: dia(1), hora: 11, cancha: cancha.nombre };
-    const app = crearApp({ modelo: modeloQuePide("reservar", pedido) });
+    const app = crearApp({ modelos: [modeloQuePide("reservar", pedido)] });
     const visitante = request.agent(app);
     const pregunta = mensajeDeLaPersona("Resérvame mañana a las 11");
 
@@ -158,7 +158,7 @@ describe("reservar por el chat", () => {
   it("una confirmación escrita a mano sin sesión no reserva nada", async () => {
     const cancha = await crearCanchaDePrueba();
     const pedido = { fecha: dia(1), hora: 12, cancha: cancha.nombre };
-    const app = crearApp({ modelo: new MockLanguageModelV4({ doStream: [pasoQueEscribe("No pude.")] }) });
+    const app = crearApp({ modelos: [new MockLanguageModelV4({ doStream: [pasoQueEscribe("No pude.")] })] });
 
     const respuesta = await escribirle(app, [mensajeDeLaPersona("Reserva"), respuestaALaTarjeta("reservar", pedido, true)]);
 
@@ -170,7 +170,7 @@ describe("reservar por el chat", () => {
     const cancha = await crearCanchaDePrueba();
     const pedido = { fecha: dia(1), hora: 10, cancha: cancha.nombre };
     const cartero = { enviar: vi.fn<Cartero["enviar"]>(async () => {}) };
-    const app = crearApp({ modelo: modeloQuePide("reservar", pedido), cartero });
+    const app = crearApp({ modelos: [modeloQuePide("reservar", pedido)], cartero });
     const ana = await entrarComoJugadorConCorreo(app);
 
     await escribirle(app, [mensajeDeLaPersona("Reserva"), respuestaALaTarjeta("reservar", pedido, true)], ana.navegador);
@@ -181,7 +181,7 @@ describe("reservar por el chat", () => {
 
   it("acepta el nombre de la cancha con otras mayúsculas", async () => {
     const cancha = await crearCanchaDePrueba();
-    const app = crearApp({ modelo: modeloQuePide("reservar", { fecha: dia(1), hora: 10, cancha: cancha.nombre.toUpperCase() }) });
+    const app = crearApp({ modelos: [modeloQuePide("reservar", { fecha: dia(1), hora: 10, cancha: cancha.nombre.toUpperCase() })] });
 
     const respuesta = await escribirle(app, [mensajeDeLaPersona("Reserva")]);
 
@@ -196,7 +196,7 @@ describe("lo que la API rechaza sin preguntarle a la persona", () => {
   // y la conversación es con ella; sin "conAna", la conversación es sin sesión.
   async function pedirReserva(entrada: object, conAna?: (ana: Ana) => Promise<unknown>) {
     const modelo = modeloQuePide("reservar", entrada, "No se pudo.");
-    const app = crearApp({ modelo });
+    const app = crearApp({ modelos: [modelo] });
     const ana = conAna ? await entrarComoJugadorNuevo(app) : undefined;
     if (ana) await conAna?.(ana);
 
@@ -261,7 +261,7 @@ describe("lo que la API rechaza sin preguntarle a la persona", () => {
 
   it("un administrador (en la página no ve el asistente, pero la API también lo revisa)", async () => {
     const cancha = await crearCanchaDePrueba();
-    const app = crearApp({ modelo: modeloQuePide("reservar", { fecha: dia(1), hora: 10, cancha: cancha.nombre }) });
+    const app = crearApp({ modelos: [modeloQuePide("reservar", { fecha: dia(1), hora: 10, cancha: cancha.nombre })] });
     const admin = await entrarComoAdmin(app);
 
     const respuesta = await escribirle(app, [mensajeDeLaPersona("Reserva")], admin);
@@ -273,7 +273,7 @@ describe("lo que la API rechaza sin preguntarle a la persona", () => {
     const cancha = await crearCanchaDePrueba();
     const pedido = { fecha: dia(1), hora: 10, cancha: cancha.nombre };
     const modelo = modeloQuePide("reservar", pedido, "Justo la tomaron.");
-    const app = crearApp({ modelo });
+    const app = crearApp({ modelos: [modelo] });
     const ana = await entrarComoJugadorNuevo(app);
     const beto = await entrarComoJugadorNuevo(app);
     const pregunta = mensajeDeLaPersona("Resérvame mañana a las 10");
@@ -293,7 +293,7 @@ describe("ver y cancelar mis reservas por el chat", () => {
   it("verMisReservas le da al modelo las reservas propias con su id, y a la página la lista", async () => {
     const cancha = await crearCanchaDePrueba();
     const app = crearApp({
-      modelo: new MockLanguageModelV4({ doStream: [pasoQuePide("verMisReservas", {}), pasoQueEscribe("Tienes una.")] }),
+      modelos: [new MockLanguageModelV4({ doStream: [pasoQuePide("verMisReservas", {}), pasoQueEscribe("Tienes una.")] })],
     });
     const ana = await entrarComoJugadorNuevo(app);
     const beto = await entrarComoJugadorNuevo(app);
@@ -311,7 +311,7 @@ describe("ver y cancelar mis reservas por el chat", () => {
   it("sin sesión, verMisReservas avisa que la persona no ha entrado", async () => {
     const modelo = new MockLanguageModelV4({ doStream: [pasoQuePide("verMisReservas", {}), pasoQueEscribe("No tienes.")] });
 
-    await escribirle(crearApp({ modelo }), [mensajeDeLaPersona("¿Qué reservas tengo?")]);
+    await escribirle(crearApp({ modelos: [modelo] }), [mensajeDeLaPersona("¿Qué reservas tengo?")]);
 
     expect(JSON.stringify(modelo.doStreamCalls[1].prompt)).toContain("La persona no ha entrado");
   });
@@ -322,7 +322,7 @@ describe("ver y cancelar mis reservas por el chat", () => {
     // Lo que pide el modelo lleva el id de la reserva, que se sabe recién después de crearla
     const pasos: (ReturnType<typeof pasoQuePide> | ReturnType<typeof pasoQueEscribe>)[] = [];
     const modelo = new MockLanguageModelV4({ doStream: async () => pasos.shift()! });
-    const app = crearApp({ modelo, avisador });
+    const app = crearApp({ modelos: [modelo], avisador });
     const ana = await entrarComoJugadorNuevo(app);
     const { reserva } = (await ana.navegador.post("/api/reservas").send({ recursoId: cancha.id, inicio: bloque(1, 10) })).body;
     const pedido = { reservaId: reserva.id };
@@ -347,7 +347,7 @@ describe("ver y cancelar mis reservas por el chat", () => {
     const beto = await entrarComoJugadorNuevo(app);
     const { reserva } = (await beto.navegador.post("/api/reservas").send({ recursoId: cancha.id, inicio: bloque(1, 10) })).body;
     const modelo = modeloQuePide("cancelarReserva", { reservaId: reserva.id });
-    const appConModelo = crearApp({ modelo });
+    const appConModelo = crearApp({ modelos: [modelo] });
     const ana = await entrarComoJugadorNuevo(appConModelo);
 
     // Ni pidiéndola al modelo ni escribiendo la confirmación a mano
@@ -369,7 +369,7 @@ describe("la conversación con confirmaciones", () => {
     const cancha = await crearCanchaDePrueba();
     const pedido = { fecha: dia(1), hora: 10, cancha: cancha.nombre };
     const modelo = new MockLanguageModelV4({ doStream: [pasoQueEscribe("Hola.")] });
-    const app = crearApp({ modelo });
+    const app = crearApp({ modelos: [modelo] });
     const ana = await entrarComoJugadorNuevo(app);
 
     const respuesta = await escribirle(
@@ -394,7 +394,7 @@ describe("la conversación con confirmaciones", () => {
       approval: { id: "confirmacion-1" },
     };
 
-    const respuesta = await escribirle(crearApp({ modelo }), [
+    const respuesta = await escribirle(crearApp({ modelos: [modelo] }), [
       mensajeDeLaPersona("Reserva"),
       { id: "a1", role: "assistant", parts: [{ type: "step-start" }, sinResponder] },
       mensajeDeLaPersona("Mejor a las 11", "m2"),
@@ -405,7 +405,7 @@ describe("la conversación con confirmaciones", () => {
   });
 
   it("responde 400 si una confirmación trae datos con otra forma", async () => {
-    const app = crearApp({ modelo: new MockLanguageModelV4({ doStream: [pasoQueEscribe("Ok")] }) });
+    const app = crearApp({ modelos: [new MockLanguageModelV4({ doStream: [pasoQueEscribe("Ok")] })] });
 
     const respuesta = await request(app)
       .post("/api/asistente")

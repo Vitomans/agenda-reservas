@@ -1,3 +1,4 @@
+import { APICallError } from "@ai-sdk/provider";
 import { MockEmbeddingModelV4, MockLanguageModelV4 } from "ai/test";
 import request from "supertest";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
@@ -5,8 +6,14 @@ import { crearApp } from "../src/app.ts";
 import { indiceDelClub } from "../src/asistente/conocimiento.ts";
 import type { HorariosLibres, InformacionDelClub } from "../src/asistente/herramientas.ts";
 import { db } from "../src/db.ts";
-import { CABECERA_CLAVE, CABECERA_IP } from "../src/middlewares/soloDesdeLaWeb.ts";
-import { MENSAJE_DE_ERROR, MENSAJES_CADA_10_MINUTOS } from "../src/rutas/asistente.ts";
+import { CABECERA_CLAVE, CABECERA_IP, CABECERA_PAIS } from "../src/middlewares/soloDesdeLaWeb.ts";
+import {
+  ASISTENTE_DESCANSANDO,
+  ASISTENTE_OCUPADO,
+  MENSAJE_DE_ERROR,
+  MENSAJES_CADA_10_MINUTOS,
+  MENSAJES_DEL_CLUB_AL_DIA,
+} from "../src/rutas/asistente.ts";
 import { MAXIMO_CARACTERES_POR_MENSAJE, MENSAJES_QUE_SE_MANDAN } from "../src/validacion/asistente.ts";
 import { bloque, borrarDatosDePrueba, crearCanchaDePrueba, dia, entrarComoJugadorNuevo } from "./ayudantes.ts";
 import {
@@ -33,7 +40,7 @@ afterEach(() => {
 
 describe("POST /api/asistente", () => {
   it("responde de a poco con lo que va escribiendo el modelo", async () => {
-    const app = crearApp({ modelo: modeloQueResponde(["¡Hola! ", "¿En qué ", "te ayudo?"]) });
+    const app = crearApp({ modelos: [modeloQueResponde(["¡Hola! ", "¿En qué ", "te ayudo?"])] });
 
     const respuesta = await escribirle(app, [mensajeDeLaPersona("Hola")]);
 
@@ -45,7 +52,7 @@ describe("POST /api/asistente", () => {
 
   it("le pasa al modelo las instrucciones del club con la fecha de hoy", async () => {
     const modelo = modeloQueResponde(["Hola"]);
-    const app = crearApp({ modelo });
+    const app = crearApp({ modelos: [modelo] });
 
     await escribirle(app, [mensajeDeLaPersona("¿Qué día es hoy?")]);
 
@@ -57,7 +64,7 @@ describe("POST /api/asistente", () => {
   });
 
   it("no le manda a la página el razonamiento del modelo, solo la respuesta", async () => {
-    const app = crearApp({ modelo: modeloQueResponde(["Abrimos a las 08:00."], { razonamiento: "Pensando en secreto" }) });
+    const app = crearApp({ modelos: [modeloQueResponde(["Abrimos a las 08:00."], { razonamiento: "Pensando en secreto" })] });
 
     const respuesta = await escribirle(app, [mensajeDeLaPersona("¿A qué hora abren?")]);
 
@@ -67,7 +74,7 @@ describe("POST /api/asistente", () => {
 
   it(`solo le pasa al modelo los últimos ${MENSAJES_QUE_SE_MANDAN} mensajes`, async () => {
     const modelo = modeloQueResponde(["Ok"]);
-    const app = crearApp({ modelo });
+    const app = crearApp({ modelos: [modelo] });
     const conversacion = Array.from({ length: 25 }, (_, i) =>
       i % 2 === 0
         ? mensajeDeLaPersona(`Pregunta ${i}`, `m${i}`)
@@ -89,19 +96,20 @@ describe("POST /api/asistente", () => {
         throw new Error("Detalle interno: se acabó la cuota");
       },
     });
-    const app = crearApp({ modelo });
+    const app = crearApp({ modelos: [modelo] });
 
     const respuesta = await escribirle(app, [mensajeDeLaPersona("Hola")]);
 
+    // La página recibe el error como JSON, igual que las respuestas de error de antes de empezar
     const error = eventos(respuesta.body).find((evento) => evento.type === "error");
-    expect(error?.errorText).toBe(MENSAJE_DE_ERROR);
+    expect(JSON.parse(error?.errorText ?? "")).toEqual({ error: MENSAJE_DE_ERROR });
     expect(respuesta.body).not.toContain("Detalle interno");
     expect(log).toHaveBeenCalled();
   });
 });
 
 describe("lo que la API no acepta", () => {
-  const app = crearApp({ modelo: modeloQueResponde(["Hola"]) });
+  const app = crearApp({ modelos: [modeloQueResponde(["Hola"])] });
 
   it("responde 400 si no llega una conversación", async () => {
     for (const cuerpo of [{}, { messages: "hola" }, { messages: [] }, { messages: [{ role: "user" }] }]) {
@@ -144,7 +152,7 @@ describe("límite de mensajes", () => {
   const CLAVE = "clave-de-la-web-solo-para-estos-tests-0123456789";
 
   it(`cada visitante puede mandar ${MENSAJES_CADA_10_MINUTOS} mensajes cada 10 minutos`, async () => {
-    const app = crearApp({ modelo: modeloQueResponde(["Hola"]), claveDeLaWeb: CLAVE });
+    const app = crearApp({ modelos: [modeloQueResponde(["Hola"])], claveDeLaWeb: CLAVE });
     const escribirDesde = (ip: string) =>
       escribirle(app, [mensajeDeLaPersona("Hola")])
         .set(CABECERA_CLAVE, CLAVE)
@@ -161,6 +169,154 @@ describe("límite de mensajes", () => {
     // Otro visitante no se ve afectado
     expect((await escribirDesde("198.51.100.20")).status).toBe(200);
   });
+
+  it(`entre todos los visitantes, el asistente atiende ${MENSAJES_DEL_CLUB_AL_DIA} mensajes al día; los rechazados no cuentan`, async () => {
+    const app = crearApp({ modelos: [modeloQueResponde(["Hola"])], claveDeLaWeb: CLAVE });
+    // Cada visitante manda uno solo, así nadie llega a su propio límite
+    const escribirDesde = (i: number) =>
+      escribirle(app, [mensajeDeLaPersona("Hola")])
+        .set(CABECERA_CLAVE, CLAVE)
+        .set(CABECERA_IP, `10.0.${Math.floor(i / 100)}.${i % 100}`);
+
+    // Una conversación inválida no le llega a la IA, así que no cuenta
+    const invalida = await request(app).post("/api/asistente").set(CABECERA_CLAVE, CLAVE).send({ messages: [] });
+    expect(invalida.status).toBe(400);
+
+    for (let i = 0; i < MENSAJES_DEL_CLUB_AL_DIA; i++) {
+      expect((await escribirDesde(i)).status).toBe(200);
+    }
+
+    const pasado = await escribirDesde(MENSAJES_DEL_CLUB_AL_DIA);
+    expect(pasado.status).toBe(503);
+    expect(JSON.parse(pasado.body)).toEqual({ error: ASISTENTE_DESCANSANDO, cerrarElChat: true });
+  }, 30_000);
+});
+
+// Lo que responde Groq cuando se acabó la cuota de un modelo: 429, y en cuántos segundos vuelve a atender
+function sinCuota(segundos: number) {
+  return new APICallError({
+    message: "Rate limit reached",
+    url: "https://api.groq.com/openai/v1/chat/completions",
+    requestBodyValues: {},
+    statusCode: 429,
+    responseHeaders: { "retry-after": String(segundos) },
+  });
+}
+
+function modeloSinCuota(segundos: number) {
+  return new MockLanguageModelV4({
+    doStream: async () => {
+      throw sinCuota(segundos);
+    },
+  });
+}
+
+describe("la cadena de respaldo (ver asistente/respaldo.ts)", () => {
+  it("si el primer modelo se quedó sin cuota responde el segundo, y el mensaje siguiente va directo al segundo", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const primero = modeloSinCuota(30);
+    const segundo = modeloQueResponde(["Hola, soy el segundo."]);
+    const app = crearApp({ modelos: [primero, segundo] });
+
+    const respuesta = await escribirle(app, [mensajeDeLaPersona("Hola")]);
+    await escribirle(app, [mensajeDeLaPersona("¿Sigues ahí?")]);
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toContain("Hola, soy el segundo.");
+    expect(primero.doStreamCalls).toHaveLength(1);
+    expect(segundo.doStreamCalls).toHaveLength(2);
+  });
+
+  it("si todos descansan pero vuelven pronto, pide probar en unos segundos (sin preguntarle a la IA)", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const unico = modeloSinCuota(20);
+    const app = crearApp({ modelos: [unico] });
+
+    // El primer mensaje se entera a mitad de la respuesta: el error llega dentro de ella, como JSON
+    const primera = await escribirle(app, [mensajeDeLaPersona("Hola")]);
+    const error = eventos(primera.body).find((evento) => evento.type === "error");
+    expect(JSON.parse(error?.errorText ?? "")).toEqual({ error: ASISTENTE_OCUPADO });
+
+    // El siguiente ya sabe que el modelo descansa, y responde 503 de inmediato
+    const segunda = await escribirle(app, [mensajeDeLaPersona("¿Y ahora?")]);
+    expect(segunda.status).toBe(503);
+    expect(JSON.parse(segunda.body)).toEqual({ error: ASISTENTE_OCUPADO });
+    expect(Number(segunda.headers["retry-after"])).toBeGreaterThan(0);
+    expect(unico.doStreamCalls).toHaveLength(1);
+  });
+
+  it("si todos descansan por un buen rato, el asistente está 'descansando' y la página cierra el chat", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const app = crearApp({ modelos: [modeloSinCuota(3600)] });
+
+    const primera = await escribirle(app, [mensajeDeLaPersona("Hola")]);
+    const segunda = await escribirle(app, [mensajeDeLaPersona("¿Y ahora?")]);
+
+    const error = eventos(primera.body).find((evento) => evento.type === "error");
+    expect(JSON.parse(error?.errorText ?? "")).toEqual({ error: ASISTENTE_DESCANSANDO, cerrarElChat: true });
+    expect(segunda.status).toBe(503);
+    expect(JSON.parse(segunda.body)).toEqual({ error: ASISTENTE_DESCANSANDO, cerrarElChat: true });
+  });
+
+  it("deja en el log cuántos pedidos a la IA y cuántos tokens gastó cada respuesta", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const modelo = new MockLanguageModelV4({
+      doStream: [pasoQuePide("verHorariosLibres", { fecha: dia(1) }), pasoQueEscribe("Mañana hay libres.")],
+    });
+
+    await escribirle(crearApp({ modelos: [modelo] }), [mensajeDeLaPersona("¿Hay cancha mañana?")]);
+
+    // El modelo falso dice que cada pedido gastó 10 tokens de entrada y 5 de salida
+    expect(log).toHaveBeenCalledWith(
+      expect.stringMatching(/^Asistente: 2 pedidos a .+, 20 tokens de entrada y 10 de salida\. Hoy: 1 respuesta y 30 tokens\.$/),
+    );
+  });
+});
+
+describe("los visitantes que no pueden usar Gemini (ver asistente/modelos.ts)", () => {
+  const CLAVE = "clave-de-la-web-solo-para-estos-tests-0123456789";
+
+  // Como llega un mensaje por la página desde ese país
+  const escribirDesde = (app: ReturnType<typeof crearApp>, pais: string, texto = "Hola") =>
+    escribirle(app, [mensajeDeLaPersona(texto)]).set(CABECERA_CLAVE, CLAVE).set(CABECERA_PAIS, pais);
+
+  it("no conversan con Gemini, aunque los demás modelos estén sin cuota", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const gemini = new MockLanguageModelV4({ provider: "google.generative-ai", doStream: modeloQueResponde(["Hola"]).doStream });
+    const app = crearApp({ modelos: [modeloSinCuota(3600), gemini], claveDeLaWeb: CLAVE });
+
+    const desdeAlemania = await escribirDesde(app, "DE");
+    expect(desdeAlemania.body).toContain(ASISTENTE_DESCANSANDO);
+    expect(gemini.doStreamCalls).toHaveLength(0);
+
+    const desdeChile = await escribirDesde(app, "CL");
+    expect(desdeChile.body).toContain("Hola");
+    expect(gemini.doStreamCalls).toHaveLength(1);
+  });
+
+  it("buscan en la información del club por palabras, sin pedirle el vector de la pregunta a Gemini", async () => {
+    const { vector } = indiceDelClub().pedazos.find((pedazo) => pedazo.id === "servicios#estacionamiento")!;
+    const modeloDeVectores = new MockEmbeddingModelV4({ doEmbed: async () => ({ embeddings: [vector], warnings: [] }) });
+    const buscarEstacionamiento = () =>
+      new MockLanguageModelV4({
+        doStream: [pasoQuePide("buscarInformacion", { pregunta: "estacionamiento" }), pasoQueEscribe("Hay estacionamiento.")],
+      });
+
+    const desdeEspana = await escribirDesde(
+      crearApp({ modelos: [buscarEstacionamiento()], modeloDeVectores, claveDeLaWeb: CLAVE }),
+      "ES",
+      "¿Dónde dejo el auto?",
+    );
+    expect(resultadoDeLaHerramienta<InformacionDelClub>(desdeEspana.body)?.forma).toBe("palabras");
+    expect(modeloDeVectores.doEmbedCalls).toHaveLength(0);
+
+    const desdeChile = await escribirDesde(
+      crearApp({ modelos: [buscarEstacionamiento()], modeloDeVectores, claveDeLaWeb: CLAVE }),
+      "CL",
+      "¿Dónde dejo el auto?",
+    );
+    expect(resultadoDeLaHerramienta<InformacionDelClub>(desdeChile.body)?.forma).toBe("significado");
+  });
 });
 
 // Las canchas del seed pueden tener reservas de los socios simulados, así que estos tests miran
@@ -173,7 +329,7 @@ describe("la herramienta verHorariosLibres", () => {
         pasoQueEscribe("Mañana hay libres desde las 19:00."),
       ],
     });
-    const app = crearApp({ modelo });
+    const app = crearApp({ modelos: [modelo] });
     const cancha = await crearCanchaDePrueba();
     const ana = await entrarComoJugadorNuevo(app);
     const beto = await entrarComoJugadorNuevo(app);
@@ -206,7 +362,7 @@ describe("la herramienta verHorariosLibres", () => {
     const modelo = new MockLanguageModelV4({
       doStream: [pasoQuePide("verHorariosLibres", { fecha: dia(1), desde: 21, hasta: 21 }), pasoQueEscribe("Sí.")],
     });
-    const app = crearApp({ modelo });
+    const app = crearApp({ modelos: [modelo] });
     const cancha = await crearCanchaDePrueba();
     const ana = await entrarComoJugadorNuevo(app);
     await ana.navegador.post("/api/reservas").send({ recursoId: cancha.id, inicio: bloque(1, 21) });
@@ -223,7 +379,7 @@ describe("la herramienta verHorariosLibres", () => {
       doStream: [pasoQuePide("verHorariosLibres", { fecha: dia(7) }), pasoQueEscribe("Ese día todavía no se puede reservar.")],
     });
 
-    const respuesta = await escribirle(crearApp({ modelo }), [mensajeDeLaPersona("¿Y en una semana más?")]);
+    const respuesta = await escribirle(crearApp({ modelos: [modelo] }), [mensajeDeLaPersona("¿Y en una semana más?")]);
 
     expect(resultadoDeLaHerramienta<HorariosLibres>(respuesta.body)).toMatchObject({ horas: [], aviso: expect.stringMatching(/no se puede reservar/) });
     expect(JSON.stringify(modelo.doStreamCalls[1].prompt)).toContain("Ese día no se puede reservar: solo desde hoy hasta el");
@@ -239,7 +395,7 @@ describe("la herramienta buscarInformacion", () => {
       ],
     });
 
-    const respuesta = await escribirle(crearApp({ modelo }), [mensajeDeLaPersona("¿Arriendan paletas?")]);
+    const respuesta = await escribirle(crearApp({ modelos: [modelo] }), [mensajeDeLaPersona("¿Arriendan paletas?")]);
 
     expect(respuesta.status).toBe(200);
     // Sin la clave de Gemini (como en los tests), busca por palabras
@@ -268,7 +424,7 @@ describe("la herramienta buscarInformacion", () => {
     const { vector } = indiceDelClub().pedazos.find((pedazo) => pedazo.id === "servicios#estacionamiento")!;
     const modeloDeVectores = new MockEmbeddingModelV4({ doEmbed: async () => ({ embeddings: [vector], warnings: [] }) });
 
-    const respuesta = await escribirle(crearApp({ modelo, modeloDeVectores }), [
+    const respuesta = await escribirle(crearApp({ modelos: [modelo], modeloDeVectores }), [
       mensajeDeLaPersona("¿Dónde dejo el auto?"),
     ]);
 
@@ -318,7 +474,7 @@ describe("la conversación con resultados de herramientas", () => {
   it("le pasa al modelo los resultados anteriores como resumen, para que entienda 'la de las 7'", async () => {
     const modelo = modeloQueResponde(["Sí, es hora punta."]);
 
-    const respuesta = await escribirle(crearApp({ modelo }), [
+    const respuesta = await escribirle(crearApp({ modelos: [modelo] }), [
       mensajeDeLaPersona("¿Hay cancha mañana?"),
       respuestaConHorarios(HORARIOS),
       mensajeDeLaPersona("¿La de las 7 es hora punta?", "m2"),
@@ -334,7 +490,7 @@ describe("la conversación con resultados de herramientas", () => {
     const modelo = modeloQueResponde(["Se devuelven en recepción."]);
     const fuente = { id: "servicios#arriendo-de-paletas", documento: "Las reservas son gratis", seccion: "Gratis" };
 
-    const respuesta = await escribirle(crearApp({ modelo }), [
+    const respuesta = await escribirle(crearApp({ modelos: [modelo] }), [
       mensajeDeLaPersona("¿Arriendan paletas?"),
       respuestaConInformacion({ fuentes: [fuente], forma: "palabras" }),
       mensajeDeLaPersona("¿Y dónde las devuelvo?", "m2"),
@@ -350,7 +506,7 @@ describe("la conversación con resultados de herramientas", () => {
     const modelo = modeloQueResponde(["El precio es $12.000."]);
     const aMedias = { type: "tool-verHorariosLibres", toolCallId: "llamada-1", state: "input-available", input: { fecha: dia(1) } };
 
-    const respuesta = await escribirle(crearApp({ modelo }), [
+    const respuesta = await escribirle(crearApp({ modelos: [modelo] }), [
       mensajeDeLaPersona("¿Hay cancha mañana?"),
       { id: "a1", role: "assistant", parts: [aMedias] },
       mensajeDeLaPersona("Mejor dime el precio", "m2"),
@@ -361,7 +517,7 @@ describe("la conversación con resultados de herramientas", () => {
   });
 
   it("responde 400 si trae resultados escritos a mano con otra forma, o partes que la API nunca manda", async () => {
-    const app = crearApp({ modelo: modeloQueResponde(["Ok"]) });
+    const app = crearApp({ modelos: [modeloQueResponde(["Ok"])] });
     const delAsistente = (parte: object) => ({ id: "a1", role: "assistant", parts: [parte] });
     const respuestasFalsas = [
       respuestaConHorarios({ horas: "todas libres" }),
