@@ -2,29 +2,36 @@ import { describe, expect, it } from "vitest";
 import {
   cambiaronLasReservas,
   debeEnviarseSolo,
+  errorDelAsistente,
   estadoDeLaTarjeta,
   type MensajeDelAsistente,
-  mensajeDelError,
   type ParteQueConfirma,
   pedidoDeCancelacion,
   pedidoDeHora,
   reservasCanceladas,
 } from "@/lib/asistente";
 
-describe("mensajeDelError", () => {
+describe("errorDelAsistente", () => {
   it("muestra el mensaje que mandó la API cuando rechaza el pedido", () => {
     const error = new Error(JSON.stringify({ error: "Le escribiste muchos mensajes seguidos al asistente." }));
 
-    expect(mensajeDelError(error)).toBe("Le escribiste muchos mensajes seguidos al asistente.");
+    expect(errorDelAsistente(error)).toEqual({ mensaje: "Le escribiste muchos mensajes seguidos al asistente.", cerrarElChat: false });
+  });
+
+  it("dice que el chat se cierra cuando la API lo pide (el asistente está descansando)", () => {
+    const error = new Error(JSON.stringify({ error: "El asistente está descansando.", cerrarElChat: true }));
+
+    expect(errorDelAsistente(error)).toEqual({ mensaje: "El asistente está descansando.", cerrarElChat: true });
   });
 
   it("avisa cuando no hay conexión", () => {
-    expect(mensajeDelError(new TypeError("Failed to fetch"))).toMatch(/No se pudo conectar/);
+    expect(errorDelAsistente(new TypeError("Failed to fetch")).mensaje).toMatch(/No se pudo conectar/);
   });
 
-  it("cualquier otro error se muestra como un mensaje general en español", () => {
-    expect(mensajeDelError(new Error("Failed to fetch the chat response."))).toMatch(/tuvo un problema/);
-    expect(mensajeDelError(new Error(JSON.stringify({ otra: "cosa" })))).toMatch(/tuvo un problema/);
+  it("cualquier otro error se muestra como un mensaje general en español, sin cerrar el chat", () => {
+    for (const error of [new Error("Failed to fetch the chat response."), new Error(JSON.stringify({ otra: "cosa" }))]) {
+      expect(errorDelAsistente(error)).toEqual({ mensaje: expect.stringMatching(/tuvo un problema/), cerrarElChat: false });
+    }
   });
 });
 

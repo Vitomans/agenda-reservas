@@ -2,7 +2,7 @@ import { getRewrittenUrl, isRewrite, unstable_doesMiddlewareMatch } from "next/e
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import nextConfig from "../next.config";
-import { CABECERA_CLAVE, CABECERA_IP, config, proxy } from "../proxy";
+import { CABECERA_CLAVE, CABECERA_IP, CABECERA_PAIS, config, proxy } from "../proxy";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -31,25 +31,31 @@ describe("el puente a la API (proxy.ts)", () => {
     expect(getRewrittenUrl(respuesta)).toBe("http://localhost:4000/api/disponibilidad?fecha=2026-10-25");
   });
 
-  it("agrega la clave de la página y la IP que anotó Vercel", () => {
+  it("agrega la clave de la página, y la IP y el país que anotó Vercel", () => {
     vi.stubEnv("CLAVE_DE_LA_WEB", "clave-secreta");
 
-    const respuesta = proxy(new NextRequest("https://volea.test/api/recursos", { headers: { "x-real-ip": "203.0.113.7" } }));
-
-    expect(cabeceraEnviada(respuesta, CABECERA_CLAVE)).toBe("clave-secreta");
-    expect(cabeceraEnviada(respuesta, CABECERA_IP)).toBe("203.0.113.7");
-  });
-
-  it("borra la clave y la IP si el visitante las escribió a mano", () => {
     const respuesta = proxy(
-      new NextRequest("https://volea.test/api/auth/login", {
-        headers: { [CABECERA_CLAVE]: "inventada", [CABECERA_IP]: "198.51.100.1" },
+      new NextRequest("https://volea.test/api/recursos", {
+        headers: { "x-real-ip": "203.0.113.7", "x-vercel-ip-country": "CL" },
       }),
     );
 
-    // Sin CLAVE_DE_LA_WEB ni x-real-ip (como en local), no se manda ninguna de las dos
+    expect(cabeceraEnviada(respuesta, CABECERA_CLAVE)).toBe("clave-secreta");
+    expect(cabeceraEnviada(respuesta, CABECERA_IP)).toBe("203.0.113.7");
+    expect(cabeceraEnviada(respuesta, CABECERA_PAIS)).toBe("CL");
+  });
+
+  it("borra la clave, la IP y el país si el visitante los escribió a mano", () => {
+    const respuesta = proxy(
+      new NextRequest("https://volea.test/api/auth/login", {
+        headers: { [CABECERA_CLAVE]: "inventada", [CABECERA_IP]: "198.51.100.1", [CABECERA_PAIS]: "CL" },
+      }),
+    );
+
+    // Sin CLAVE_DE_LA_WEB, x-real-ip ni x-vercel-ip-country (como en local), no se manda ninguna de las tres
     const enviadas = respuesta.headers.get("x-middleware-override-headers")?.split(",") ?? [];
     expect(enviadas).not.toContain(CABECERA_CLAVE);
     expect(enviadas).not.toContain(CABECERA_IP);
+    expect(enviadas).not.toContain(CABECERA_PAIS);
   });
 });

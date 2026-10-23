@@ -123,23 +123,27 @@ export function cambiaronLasReservas(mensaje: MensajeDelAsistente) {
   );
 }
 
-// useChat entrega los errores de distintas formas. Esto los deja como un mensaje en español para mostrar:
-// - Si la API respondió un error (400, 429, 503), el mensaje es su JSON: {"error": "..."}.
+// useChat entrega los errores de distintas formas. Esto los deja como un mensaje en español para mostrar,
+// y dice si el chat se cierra:
+// - La API manda sus errores como JSON, {"error": "...", "cerrarElChat": true}, tanto si rechaza el mensaje
+//   (400, 429, 503) como si la IA falla a mitad de la respuesta. "cerrarElChat" llega cuando el asistente no va
+//   a poder responder por un buen rato (por ejemplo, si se acabó la cuota gratis de la IA): ahí no sirve
+//   reintentar, y la página ofrece la grilla, que funciona sin IA.
 // - Si no hubo conexión, fetch lanza un TypeError (cada navegador con su texto: "Failed to fetch", "Load failed"...).
-// - Cualquier otro (por ejemplo, si la IA falló a mitad de la respuesta), un mensaje general.
-export function mensajeDelError(error: Error) {
+// - Cualquier otro, un mensaje general.
+export function errorDelAsistente(error: Error): { mensaje: string; cerrarElChat: boolean } {
   try {
     const datos: unknown = JSON.parse(error.message);
     if (typeof datos === "object" && datos !== null && "error" in datos && typeof datos.error === "string") {
-      return datos.error;
+      return { mensaje: datos.error, cerrarElChat: "cerrarElChat" in datos && datos.cerrarElChat === true };
     }
   } catch {
     // No era JSON: se revisa abajo
   }
 
   if (error.name === "TypeError") {
-    return "No se pudo conectar con el asistente. Revisa tu conexión e intenta de nuevo.";
+    return { mensaje: "No se pudo conectar con el asistente. Revisa tu conexión e intenta de nuevo.", cerrarElChat: false };
   }
 
-  return "El asistente tuvo un problema y no pudo responder. Prueba de nuevo en unos segundos.";
+  return { mensaje: "El asistente tuvo un problema y no pudo responder. Prueba de nuevo en unos segundos.", cerrarElChat: false };
 }

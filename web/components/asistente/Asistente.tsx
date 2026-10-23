@@ -7,11 +7,11 @@ import { useEffect, useRef, useState } from "react";
 import {
   cambiaronLasReservas,
   debeEnviarseSolo,
+  errorDelAsistente,
   estadoDeLaTarjeta,
   ID_DEL_BOTON,
   MAXIMO_CARACTERES,
   type MensajeDelAsistente,
-  mensajeDelError,
   pedidoDeCancelacion,
   pedidoDeHora,
   reservasCanceladas,
@@ -65,6 +65,11 @@ export function Asistente({ abierto, onCerrar, conSesion }: Props) {
   const campo = useRef<HTMLInputElement>(null);
   // "submitted": esperando que la IA empiece; "streaming": la respuesta va llegando
   const ocupado = status === "submitted" || status === "streaming";
+  const problema = error ? errorDelAsistente(error) : undefined;
+  // Si la API avisa que el asistente no va a poder responder por un buen rato, el chat se cierra:
+  // no se puede escribir ni tocar los botones de las respuestas, y se ofrece la grilla
+  const cerrado = problema?.cerrarElChat ?? false;
+  const bloqueado = ocupado || cerrado;
 
   // Al abrir el chat, el cursor queda listo para escribir
   useEffect(() => {
@@ -96,7 +101,7 @@ export function Asistente({ abierto, onCerrar, conSesion }: Props) {
 
   function enviar(pregunta: string) {
     const limpia = pregunta.trim();
-    if (!limpia || ocupado) return;
+    if (!limpia || bloqueado) return;
     clearError();
     void sendMessage({ text: limpia });
     setTexto("");
@@ -199,7 +204,7 @@ export function Asistente({ abierto, onCerrar, conSesion }: Props) {
                     pedido={parte.input}
                     horarios={parte.output}
                     onPedir={(hora) => enviar(pedidoDeHora(parte.input.fecha, hora))}
-                    deshabilitado={ocupado}
+                    deshabilitado={bloqueado}
                   />
                 );
               }
@@ -227,7 +232,7 @@ export function Asistente({ abierto, onCerrar, conSesion }: Props) {
                     misReservas={parte.output}
                     canceladas={canceladas}
                     onCancelar={(reserva) => enviar(pedidoDeCancelacion(reserva))}
-                    deshabilitado={ocupado}
+                    deshabilitado={bloqueado}
                   />
                 );
               }
@@ -256,7 +261,7 @@ export function Asistente({ abierto, onCerrar, conSesion }: Props) {
                   estado={estado}
                   descripcion={confirmacion?.requestReason}
                   conSesion={conSesion}
-                  ocupado={ocupado || entrarComoInvitado.isPending}
+                  ocupado={bloqueado || entrarComoInvitado.isPending}
                   onResponder={(confirma) => {
                     if (confirmacion) void responderTarjeta(confirmacion.id, confirma);
                   }}
@@ -280,19 +285,25 @@ export function Asistente({ abierto, onCerrar, conSesion }: Props) {
           </div>
         )}
 
-        {error && (
+        {problema && (
           <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {mensajeDelError(error)}{" "}
-            <button
-              type="button"
-              onClick={() => {
-                clearError();
-                void regenerate();
-              }}
-              className="font-medium underline"
-            >
-              Reintentar
-            </button>
+            {problema.mensaje}{" "}
+            {cerrado ? (
+              <button type="button" onClick={cerrar} className="font-medium underline">
+                Ir a la grilla
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  clearError();
+                  void regenerate();
+                }}
+                className="font-medium underline"
+              >
+                Reintentar
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -314,16 +325,17 @@ export function Asistente({ abierto, onCerrar, conSesion }: Props) {
             value={texto}
             onChange={(evento) => setTexto(evento.target.value)}
             maxLength={MAXIMO_CARACTERES}
-            placeholder="Escribe tu pregunta…"
+            placeholder={cerrado ? "El asistente está descansando" : "Escribe tu pregunta…"}
+            disabled={cerrado}
             autoComplete="off"
-            className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 focus:outline-none"
+            className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
           />
           {ocupado ? (
             <Boton variante="secundario" onClick={() => void stop()}>
               Detener
             </Boton>
           ) : (
-            <Boton type="submit" disabled={!texto.trim()}>
+            <Boton type="submit" disabled={!texto.trim() || cerrado}>
               Enviar
             </Boton>
           )}

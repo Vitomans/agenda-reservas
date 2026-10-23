@@ -232,6 +232,42 @@ describe("Asistente", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Le escribiste muchos mensajes seguidos al asistente.");
   });
 
+  it("si la IA falla a mitad de la respuesta, muestra el mensaje que mandó la API y deja reintentar", async () => {
+    const ocupado = "El asistente está atendiendo muchas consultas. Prueba de nuevo en unos segundos.";
+    simularApi(() => respuestaConEventos([{ type: "error", errorText: JSON.stringify({ error: ocupado }) }]));
+    dibujar();
+
+    await userEvent.type(screen.getByLabelText("Escribe tu pregunta"), "Hola");
+    await userEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(ocupado);
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Escribe tu pregunta")).toBeEnabled();
+  });
+
+  it("si el asistente está descansando, el chat se cierra y ofrece la grilla", async () => {
+    const descansando = "El asistente está descansando. Mientras tanto, puedes reservar en la grilla.";
+    simularApi(
+      () =>
+        new Response(JSON.stringify({ error: descansando, cerrarElChat: true }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    const { onCerrar } = dibujar();
+
+    await userEvent.type(screen.getByLabelText("Escribe tu pregunta"), "Hola");
+    await userEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(descansando);
+    // Reintentar no sirve: ya no se puede escribir
+    expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Escribe tu pregunta")).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Ir a la grilla" }));
+    expect(onCerrar).toHaveBeenCalled();
+  });
+
   it("no deja enviar un mensaje vacío ni uno más largo que el límite de la API", async () => {
     dibujar();
 
