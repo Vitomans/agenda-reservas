@@ -2,9 +2,11 @@ import { type EmbeddingModel, type LanguageModel, pipeAgentUIStreamToResponse } 
 import { Router } from "express";
 import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import { crearAsistente } from "../asistente/asistente.ts";
+import type { Cartero } from "../cartero.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
 import { sesionOpcional } from "../middlewares/sesion.ts";
 import { ipDelVisitante } from "../middlewares/soloDesdeLaWeb.ts";
+import type { Avisador } from "../tiempoReal.ts";
 import { conversacionValida } from "../validacion/asistente.ts";
 
 // Ruta de /api/asistente: recibe la conversación y responde de a poco (streaming),
@@ -31,8 +33,20 @@ function limiteDeMensajes(minutos: number, limite: number, error: string) {
 
 // "modelo" es null cuando no hay clave de la IA: la ruta existe, pero responde que el asistente no está disponible.
 // "modeloDeVectores" es null cuando no hay clave de Gemini: el asistente busca en la información del club por palabras.
+// "avisador" y "cartero" son los mismos de las rutas de las reservas: al reservar por el chat se avisa en vivo
+// y se envía el correo, igual que al reservar en la grilla.
 // Es una función por la misma razón que crearRutasAuth: cada app de los tests tiene sus propios contadores.
-export function crearRutasAsistente(modelo: LanguageModel | null, modeloDeVectores: EmbeddingModel | null = null) {
+export function crearRutasAsistente({
+  modelo,
+  modeloDeVectores,
+  avisador,
+  cartero,
+}: {
+  modelo: LanguageModel | null;
+  modeloDeVectores: EmbeddingModel | null;
+  avisador: Avisador;
+  cartero: Cartero;
+}) {
   const rutas = Router();
 
   // El plan gratis de la IA tiene una cuota diaria: así una sola persona no se la gasta toda
@@ -47,13 +61,14 @@ export function crearRutasAsistente(modelo: LanguageModel | null, modeloDeVector
     "Llegaste al máximo de mensajes al asistente por hoy. Puedes seguir reservando en la grilla.",
   );
 
-  // Se puede conversar sin entrar, como se ven los horarios. Con sesión, el asistente ve las reservas propias.
+  // Se puede conversar sin entrar, como se ven los horarios. Con sesión, el asistente ve las reservas propias
+  // y reserva a nombre de quien conversa.
   rutas.post("/", porRato, porDia, sesionOpcional, async (req, res) => {
     if (!modelo) {
       throw new ErrorHttp(503, "El asistente no está disponible en este momento");
     }
 
-    const asistente = crearAsistente(modelo, { usuarioId: req.usuario?.id, modeloDeVectores });
+    const asistente = crearAsistente(modelo, { usuario: req.usuario, modeloDeVectores, avisador, cartero });
     const mensajes = await conversacionValida(req.body, asistente.tools);
 
     // Si la persona cierra el chat o la página a mitad de la respuesta, se deja de pedirle a la IA (y de gastar cuota)

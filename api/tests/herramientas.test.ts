@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { horasLibres, informacionParaLaIA, resumenParaLaIA } from "../src/asistente/herramientas.ts";
+import { describirReserva, misReservasParaLaIA } from "../src/asistente/reservas.ts";
 import { db } from "../src/db.ts";
 import type { EstadoBloque } from "../src/servicios/reservas.ts";
 
@@ -107,5 +108,28 @@ describe("informacionParaLaIA", () => {
 
   it("si no encontró nada, se lo dice al modelo para que no invente", () => {
     expect(informacionParaLaIA({ fuentes: [], forma: "palabras" })).toBe("No hay nada sobre eso en la información del club.");
+  });
+});
+
+describe("describirReserva", () => {
+  it("dice la cancha, el día, el horario y el precio: es el texto de la tarjeta para confirmar", () => {
+    expect(describirReserva({ cancha: "Cancha 2", fecha: "2026-10-23", hora: "19:00", precio: 16_000 })).toBe(
+      "Cancha 2 · viernes 23 de octubre · 19:00 a 20:00 · $16.000",
+    );
+  });
+});
+
+describe("misReservasParaLaIA", () => {
+  it("le pasa al modelo cada reserva con su id, que necesita para cancelarla", () => {
+    const texto = misReservasParaLaIA({
+      reservas: [{ id: "r-1", cancha: "Cancha 1", fecha: "2026-10-24", hora: "10:00", precio: 16_000 }],
+    });
+
+    expect(texto).toBe("Reservas próximas de la persona:\n- Cancha 1 · sábado 24 de octubre · 10:00 a 11:00 · $16.000 (id r-1)");
+  });
+
+  it("dice cuando no tiene reservas, o el aviso si no ha entrado", () => {
+    expect(misReservasParaLaIA({ reservas: [] })).toBe("La persona no tiene reservas próximas.");
+    expect(misReservasParaLaIA({ reservas: [], aviso: "La persona no ha entrado." })).toBe("La persona no ha entrado.");
   });
 });

@@ -53,6 +53,15 @@ describe("instrucciones del asistente", () => {
     expect(texto).toContain("di que no tienes esa información, sin decir que el club no lo tiene");
   });
 
+  it("piden reservar y cancelar con las herramientas, y no decir que quedó hecho antes de que la persona confirme", () => {
+    const texto = instrucciones(JUEVES_EN_LA_TARDE);
+
+    expect(texto).toContain("Para reservar, usa reservar con el día, la hora y la cancha");
+    expect(texto).toContain("No digas que quedó reservada o cancelada hasta tener el resultado");
+    expect(texto).toContain("busca la reserva con verMisReservas y usa cancelarReserva");
+    expect(texto).not.toContain("Todavía no puedes reservar");
+  });
+
   it("pasado medianoche, 'hoy' ya es el día siguiente en el club", () => {
     // 03:30 UTC del viernes 23 son las 00:30 del viernes en Chile
     expect(instrucciones(new Date("2026-10-23T03:30:00Z"))).toContain("hoy viernes 23 de octubre (2026-10-23)");

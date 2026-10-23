@@ -76,7 +76,7 @@ export function crearApp({
   app.use("/api/disponibilidad", crearRutasDisponibilidad());
   app.use("/api/reservas", crearRutasReservas(avisador, cartero));
   app.use("/api/admin", crearRutasAdmin());
-  app.use("/api/asistente", crearRutasAsistente(modelo, modeloDeVectores));
+  app.use("/api/asistente", crearRutasAsistente({ modelo, modeloDeVectores, avisador, cartero }));
 
   app.use(rutaNoEncontrada);
   app.use(manejarErrores);

@@ -1,4 +1,3 @@
-import { simulateReadableStream } from "ai";
 import { MockEmbeddingModelV4, MockLanguageModelV4 } from "ai/test";
 import request from "supertest";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
@@ -10,9 +9,18 @@ import { CABECERA_CLAVE, CABECERA_IP } from "../src/middlewares/soloDesdeLaWeb.t
 import { MENSAJE_DE_ERROR, MENSAJES_CADA_10_MINUTOS } from "../src/rutas/asistente.ts";
 import { MAXIMO_CARACTERES_POR_MENSAJE, MENSAJES_QUE_SE_MANDAN } from "../src/validacion/asistente.ts";
 import { bloque, borrarDatosDePrueba, crearCanchaDePrueba, dia, entrarComoJugadorNuevo } from "./ayudantes.ts";
+import {
+  escribirle,
+  eventos,
+  mensajeDeLaPersona,
+  modeloQueResponde,
+  pasoQueEscribe,
+  pasoQuePide,
+  resultadoDeLaHerramienta,
+} from "./ayudantesDelAsistente.ts";
 
-// Los tests usan un modelo falso que responde siempre lo mismo: así no gastan la cuota de la IA,
-// no dependen de internet y dan siempre el mismo resultado.
+// Los tests usan un modelo falso que responde siempre lo mismo (ver ayudantesDelAsistente.ts).
+// Los de reservar y cancelar están en asistenteReservas.test.ts.
 
 afterAll(async () => {
   await borrarDatosDePrueba();
@@ -22,93 +30,6 @@ afterAll(async () => {
 afterEach(() => {
   vi.restoreAllMocks();
 });
-
-const USO = {
-  inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined },
-  outputTokens: { total: 5, text: 5, reasoning: undefined },
-};
-
-// Un modelo falso que "piensa" y después escribe la respuesta en pedazos, como el de verdad
-function modeloQueResponde(pedazos: string[], { razonamiento = "" } = {}) {
-  return new MockLanguageModelV4({
-    doStream: async () => ({
-      stream: simulateReadableStream({
-        chunks: [
-          ...(razonamiento
-            ? [
-                { type: "reasoning-start", id: "r1" } as const,
-                { type: "reasoning-delta", id: "r1", delta: razonamiento } as const,
-                { type: "reasoning-end", id: "r1" } as const,
-              ]
-            : []),
-          { type: "text-start", id: "t1" } as const,
-          ...pedazos.map((delta) => ({ type: "text-delta", id: "t1", delta }) as const),
-          { type: "text-end", id: "t1" } as const,
-          { type: "finish", finishReason: { unified: "stop", raw: undefined }, usage: USO } as const,
-        ],
-      }),
-    }),
-  });
-}
-
-// Un paso del modelo en que, en vez de escribir, pide usar una herramienta. Con una lista de pasos, el modelo
-// falso responde cada pedido con el siguiente, como el de verdad: primero pide la herramienta y después escribe.
-function pasoQuePide(herramienta: string, entrada: object) {
-  return {
-    stream: simulateReadableStream({
-      chunks: [
-        { type: "tool-call", toolCallId: "llamada-1", toolName: herramienta, input: JSON.stringify(entrada) } as const,
-        { type: "finish", finishReason: { unified: "tool-calls", raw: undefined }, usage: USO } as const,
-      ],
-    }),
-  };
-}
-
-function pasoQueEscribe(texto: string) {
-  return {
-    stream: simulateReadableStream({
-      chunks: [
-        { type: "text-start", id: "t1" } as const,
-        { type: "text-delta", id: "t1", delta: texto } as const,
-        { type: "text-end", id: "t1" } as const,
-        { type: "finish", finishReason: { unified: "stop", raw: undefined }, usage: USO } as const,
-      ],
-    }),
-  };
-}
-
-function mensajeDeLaPersona(texto: string, id = "m1") {
-  return { id, role: "user", parts: [{ type: "text", text: texto }] };
-}
-
-// La respuesta llega como "eventos" (Server-Sent Events): líneas "data: {...}" separadas por una línea en blanco.
-// Supertest no sabe leer ese formato, así que se junta todo como texto y después se separa en eventos.
-const leerComoTexto: Parameters<request.Test["parse"]>[0] = (respuesta, listo) => {
-  let texto = "";
-  respuesta.setEncoding("utf8");
-  respuesta.on("data", (pedazo: string) => (texto += pedazo));
-  respuesta.on("end", () => listo(null, texto));
-};
-
-function eventos(texto: string) {
-  return texto
-    .split("\n")
-    .filter((linea) => linea.startsWith("data: ") && linea !== "data: [DONE]")
-    .map(
-      (linea) =>
-        JSON.parse(linea.slice("data: ".length)) as { type: string; delta?: string; errorText?: string; output?: unknown },
-    );
-}
-
-// "navegador" puede ser uno con la sesión iniciada (ver entrarComoJugadorNuevo)
-function escribirle(app: ReturnType<typeof crearApp>, mensajes: unknown[], navegador = request(app)) {
-  return navegador.post("/api/asistente").send({ messages: mensajes }).buffer(true).parse(leerComoTexto);
-}
-
-// Lo que recibió la página de la herramienta
-function resultadoDeLaHerramienta<Resultado = HorariosLibres>(texto: string) {
-  return eventos(texto).find((evento) => evento.type === "tool-output-available")?.output as Resultado | undefined;
-}
 
 describe("POST /api/asistente", () => {
   it("responde de a poco con lo que va escribiendo el modelo", async () => {
@@ -263,7 +184,7 @@ describe("la herramienta verHorariosLibres", () => {
 
     expect(respuesta.status).toBe(200);
     // La página recibe todo: las horas desde las 19:00 con sus canchas libres, y la reserva de Ana aparte
-    const horarios = resultadoDeLaHerramienta(respuesta.body);
+    const horarios = resultadoDeLaHerramienta<HorariosLibres>(respuesta.body);
     const horas = horarios?.horas.map((h) => h.hora) ?? [];
     const canchasA = (hora: string) => horarios?.horas.find((h) => h.hora === hora)?.canchas ?? [];
     expect(horas.every((hora) => hora >= "19:00")).toBe(true);
@@ -292,7 +213,7 @@ describe("la herramienta verHorariosLibres", () => {
 
     const respuesta = await escribirle(app, [mensajeDeLaPersona("¿Hay cancha mañana a las 9 de la noche?")]);
 
-    const horarios = resultadoDeLaHerramienta(respuesta.body);
+    const horarios = resultadoDeLaHerramienta<HorariosLibres>(respuesta.body);
     expect(horarios?.tusReservas).toEqual([]);
     expect(horarios?.horas.flatMap((h) => h.canchas)).not.toContain(cancha.nombre);
   });
@@ -304,7 +225,7 @@ describe("la herramienta verHorariosLibres", () => {
 
     const respuesta = await escribirle(crearApp({ modelo }), [mensajeDeLaPersona("¿Y en una semana más?")]);
 
-    expect(resultadoDeLaHerramienta(respuesta.body)).toMatchObject({ horas: [], aviso: expect.stringMatching(/no se puede reservar/) });
+    expect(resultadoDeLaHerramienta<HorariosLibres>(respuesta.body)).toMatchObject({ horas: [], aviso: expect.stringMatching(/no se puede reservar/) });
     expect(JSON.stringify(modelo.doStreamCalls[1].prompt)).toContain("Ese día no se puede reservar: solo desde hoy hasta el");
   });
 });

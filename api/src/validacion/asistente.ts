@@ -1,4 +1,4 @@
-import { safeValidateUIMessages, type ToolSet, type UIMessage } from "ai";
+import { isToolUIPart, safeValidateUIMessages, type ToolSet, type UIMessage } from "ai";
 import { ErrorHttp } from "../middlewares/errores.ts";
 
 // La conversación que manda la página al asistente.
@@ -23,10 +23,25 @@ function esParteConocida(parte: Parte, herramientas: ToolSet) {
   return parte.type.startsWith("tool-") && Object.hasOwn(herramientas, parte.type.slice("tool-".length));
 }
 
-// Una herramienta que quedó a medias, por ejemplo si la persona tocó "Detener" mientras la IA buscaba.
-// El modelo no acepta una llamada a una herramienta sin su resultado, así que esas partes se quitan.
-function quedoAMedias(parte: Parte) {
-  return parte.type.startsWith("tool-") && "state" in parte && parte.state !== "output-available" && parte.state !== "output-error";
+// El modelo no acepta una llamada a una herramienta sin su resultado, así que se quitan las que no terminaron:
+// - las que quedaron a medias, por ejemplo si la persona tocó "Detener" mientras la IA buscaba
+// - una reserva propuesta que la persona no respondió (escribió otra cosa en vez de tocar "Confirmar")
+// - una confirmación que no se alcanzó a hacer y quedó atrás (por ejemplo, si se cortó la conexión al confirmar)
+// Se deja la que la persona acaba de confirmar en el último mensaje: esa es la que la API tiene que hacer ahora.
+// Las que la persona rechazó también se dejan: el modelo recibe que no se aprobaron.
+function quedoAMedias(parte: Parte, esElUltimoMensaje: boolean) {
+  if (!isToolUIPart(parte)) return false;
+
+  switch (parte.state) {
+    case "output-available":
+    case "output-error":
+    case "output-denied":
+      return false;
+    case "approval-responded":
+      return parte.approval.approved && !esElUltimoMensaje;
+    default:
+      return true;
+  }
 }
 
 // "herramientas" son las del asistente: con ellas se revisa que cada resultado anterior tenga la forma correcta
@@ -55,7 +70,8 @@ export async function conversacionValida(cuerpo: unknown, herramientas: ToolSet)
     throw new ErrorHttp(400, `Cada mensaje puede tener hasta ${MAXIMO_CARACTERES_POR_MENSAJE} caracteres`);
   }
 
-  return mensajes
-    .slice(-MENSAJES_QUE_SE_MANDAN)
-    .map((mensaje) => ({ ...mensaje, parts: mensaje.parts.filter((parte) => !quedoAMedias(parte)) }));
+  return mensajes.slice(-MENSAJES_QUE_SE_MANDAN).map((mensaje, i, ultimos) => {
+    const esElUltimo = i === ultimos.length - 1;
+    return { ...mensaje, parts: mensaje.parts.filter((parte) => !quedoAMedias(parte, esElUltimo)) };
+  });
 }

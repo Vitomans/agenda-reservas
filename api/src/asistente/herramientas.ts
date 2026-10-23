@@ -1,8 +1,11 @@
 import { type EmbeddingModel, tool } from "ai";
 import { z } from "zod";
+import { sinCorreos } from "../cartero.ts";
 import { diasReservables } from "../servicios/horario.ts";
 import { disponibilidadDelClub } from "../servicios/reservas.ts";
+import { sinAvisos } from "../tiempoReal.ts";
 import { buscarEnElClub, pedazoPorId } from "./conocimiento.ts";
+import { type ContextoDeReservas, crearHerramientasDeReservas } from "./reservas.ts";
 import { horaEnPunto, nombreDelDia, pesos } from "./textos.ts";
 
 // Las herramientas: lo que la IA le puede pedir a la API mientras conversa.
@@ -157,19 +160,22 @@ export function informacionParaLaIA({ fuentes }: InformacionDelClub) {
 }
 
 // Se arman en cada mensaje con el usuario de la sesión (o sin usuario, si no entró): así la IA ve las reservas
-// propias como propias, igual que la grilla de la página. "modeloDeVectores" es el que busca en la información
-// del club por significado; sin él, se busca por palabras.
+// propias como propias, igual que la grilla de la página, y reserva a nombre de quien conversa.
+// "modeloDeVectores" es el que busca en la información del club por significado; sin él, se busca por palabras.
+// "avisador" y "cartero" avisan en vivo y envían el correo al reservar o cancelar (ver reservas.ts).
 export function crearHerramientas({
-  usuarioId,
+  usuario,
   modeloDeVectores = null,
-}: { usuarioId?: string; modeloDeVectores?: EmbeddingModel | null } = {}) {
+  avisador = sinAvisos,
+  cartero = sinCorreos,
+}: Partial<ContextoDeReservas> & { modeloDeVectores?: EmbeddingModel | null } = {}) {
   return {
     verHorariosLibres: tool({
       description:
         "Las horas libres de un día del club, con su precio y las canchas libres. Úsala siempre antes de decir si hay cancha.",
       inputSchema: esquemaPedidoDeHorarios,
       outputSchema: esquemaHorariosLibres,
-      execute: (pedido) => verHorariosLibres(pedido, usuarioId),
+      execute: (pedido) => verHorariosLibres(pedido, usuario?.id),
       toModelOutput: ({ input, output }) => ({ type: "text", value: resumenParaLaIA(input, output) }),
     }),
     buscarInformacion: tool({
@@ -181,6 +187,7 @@ export function crearHerramientas({
       execute: (pedido) => buscarInformacion(pedido, modeloDeVectores),
       toModelOutput: ({ output }) => ({ type: "text", value: informacionParaLaIA(output) }),
     }),
+    ...crearHerramientasDeReservas({ usuario, avisador, cartero }),
   };
 }
 
