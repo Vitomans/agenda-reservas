@@ -59,6 +59,10 @@ export function Portada({ horario, canchas, enVivo, onPreguntar, preguntando }: 
             <path d="M3 4.5A2.5 2.5 0 0 1 5.5 2h9A2.5 2.5 0 0 1 17 4.5v7a2.5 2.5 0 0 1-2.5 2.5H9l-4 3.5V14h0a2 2 0 0 1-2-2V4.5Z" />
           </svg>
           Pregúntale al asistente
+          {/* Solo se ve: el lector de pantalla dice "Pregúntale al asistente", y el chat ya avisa que responde una IA */}
+          <span aria-hidden="true" className="rounded-full bg-lime-400 px-1.5 py-0.5 text-[10px] leading-none font-bold tracking-wider text-slate-900">
+            IA
+          </span>
         </button>
       </div>
     </section>

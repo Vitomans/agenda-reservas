@@ -35,8 +35,13 @@ export const MAXIMO_CARACTERES = 500;
 // El botón que abre el chat (está en la portada). Al cerrar el chat, el foco vuelve a él.
 export const ID_DEL_BOTON = "boton-del-asistente";
 
-// Preguntas para empezar, que el asistente ya sabe responder
-export const SUGERENCIAS = ["¿Hay cancha mañana después de las 7?", "¿Cuánto cuesta una hora de cancha?", "¿Arriendan paletas?"];
+// Preguntas para empezar, una por cada cosa que sabe hacer el asistente: horarios, precios e información del club.
+// "icono" es el dibujo que va al lado (ver components/asistente/Iconos.tsx).
+export const SUGERENCIAS = [
+  { texto: "¿Hay cancha mañana después de las 7?", icono: "calendario" },
+  { texto: "¿Cuánto cuesta una hora de cancha?", icono: "precio" },
+  { texto: "¿Arriendan paletas?", icono: "club" },
+] as const;
 
 // Lo que se le escribe al asistente al tocar una de las horas libres que mostró
 export function pedidoDeHora(fecha: string, hora: string) {

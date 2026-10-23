@@ -42,7 +42,7 @@ export function GrillaPorHora({ horas, elegida, onElegir, resaltados = [] }: Pro
             >
               <span className="text-base font-semibold tabular-nums">{hora.hora}</span>
               {precio && <span className="text-xs tabular-nums">{precio}</span>}
-              <span className={`text-xs ${sePuedeElegir && !estaElegida ? "text-slate-500" : ""}`}>{texto}</span>
+              <span className={`text-xs ${sePuedeElegir && !estaElegida ? "text-slate-600" : ""}`}>{texto}</span>
             </button>
           </li>
         );

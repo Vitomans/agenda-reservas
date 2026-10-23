@@ -2,6 +2,7 @@ import { formatearPesos } from "@/lib/dinero";
 import { diaLargo } from "@/lib/fechas";
 import type { MisReservasDelChat, ReservaDelChat } from "@/lib/tipos";
 import { Boton } from "../Boton";
+import { Icono } from "./Iconos";
 
 type Props = {
   misReservas: MisReservasDelChat; // lo que encontró la herramienta verMisReservas
@@ -17,8 +18,11 @@ export function ReservasDelChat({ misReservas, canceladas, onCancelar, deshabili
   if (misReservas.aviso || misReservas.reservas.length === 0) return null;
 
   return (
-    <div role="group" aria-label="Tus próximas reservas" className="rounded-2xl border border-slate-200 p-3">
-      <p className="mb-2 text-sm font-semibold">Tus próximas reservas</p>
+    <div role="group" aria-label="Tus próximas reservas" className="rounded-2xl border border-slate-200 bg-white p-3">
+      <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+        <Icono nombre="ticket" className="size-4 text-blue-700" />
+        Tus próximas reservas
+      </p>
       <ul className="space-y-2">
         {misReservas.reservas.map((reserva) => (
           <li key={reserva.id} className="flex items-center justify-between gap-2 text-sm">

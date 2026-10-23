@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { EstadoDeLaTarjeta } from "@/lib/asistente";
 import { Boton, Ruedita } from "../Boton";
+import { Icono } from "./Iconos";
 
 type Props = {
   accion: "reservar" | "cancelar";
@@ -35,13 +36,25 @@ const TEXTOS = {
   },
 } as const;
 
-const CLASES: Record<Props["estado"], string> = {
-  pendiente: "border-blue-200 bg-white",
-  confirmando: "border-blue-200 bg-white",
-  hecha: "border-emerald-200 bg-emerald-50 text-emerald-900",
-  rechazada: "border-slate-200 bg-slate-50 text-slate-600",
-  "no-se-pudo": "border-red-200 bg-red-50 text-red-800",
-  vencida: "border-slate-200 bg-slate-50 text-slate-600",
+// La reserva que espera una respuesta va en lima, como la hora elegida en la grilla. La cancelación, en blanco
+// con su botón rojo. Después, verde si se hizo, rojo si no se pudo y gris si la persona dijo que no.
+const CLASES: Record<Props["accion"], Record<Props["estado"], string>> = {
+  reservar: {
+    pendiente: "border-lime-400 bg-lime-50",
+    confirmando: "border-lime-400 bg-lime-50",
+    hecha: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    rechazada: "border-slate-200 bg-slate-50 text-slate-600",
+    "no-se-pudo": "border-red-200 bg-red-50 text-red-800",
+    vencida: "border-slate-200 bg-slate-50 text-slate-600",
+  },
+  cancelar: {
+    pendiente: "border-slate-300 bg-white",
+    confirmando: "border-slate-300 bg-white",
+    hecha: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    rechazada: "border-slate-200 bg-slate-50 text-slate-600",
+    "no-se-pudo": "border-red-200 bg-red-50 text-red-800",
+    vencida: "border-slate-200 bg-slate-50 text-slate-600",
+  },
 };
 
 // La tarjeta con la que la persona confirma una reserva (o una cancelación) que le propuso el asistente.
@@ -54,37 +67,54 @@ export function TarjetaDeConfirmacion({ accion, estado, descripcion, conSesion, 
   const comoInvitado = accion === "reservar" && !conSesion;
 
   return (
-    <div role="group" aria-label={titulo} className={`rounded-2xl border p-3 text-sm ${CLASES[estado]}`}>
+    <div role="group" aria-label={titulo} className={`rounded-2xl border p-3 text-sm ${CLASES[accion][estado]}`}>
       <p className="flex items-center gap-2 font-semibold">
-        {estado === "confirmando" && <Ruedita />}
-        {estado === "hecha" && (
-          <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="2.2">
-            <path d="M4.5 10.5l3.5 3.5 7.5-8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+        {estado === "confirmando" ? (
+          <Ruedita />
+        ) : (
+          <Icono nombre={estado === "hecha" ? "listo" : "ticket"} className={estado === "hecha" ? "size-4" : "size-4 opacity-70"} />
         )}
         {titulo}
       </p>
-      {descripcion && <p className="mt-1 tabular-nums">{descripcion}</p>}
+      {descripcion && <Descripcion texto={descripcion} />}
 
       {estado === "pendiente" && (
         <>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Boton variante={accion === "cancelar" ? "peligro" : "principal"} cargando={ocupado} onClick={() => onResponder(true)}>
+            <Boton
+              variante={accion === "cancelar" ? "peligro" : "principal"}
+              cargando={ocupado}
+              onClick={() => onResponder(true)}
+              className="flex-1 whitespace-nowrap"
+            >
               {comoInvitado ? "Reservar como invitado" : textos.confirmar}
             </Boton>
-            <Boton variante="secundario" disabled={ocupado} onClick={() => onResponder(false)}>
+            <Boton variante="secundario" disabled={ocupado} onClick={() => onResponder(false)} className="flex-1 whitespace-nowrap">
               {textos.noConfirmar}
             </Boton>
           </div>
-          {comoInvitado && <p className="mt-2 text-xs text-slate-500">Sin registrarte: se crea un jugador invitado solo para ti.</p>}
+          {comoInvitado && <p className="mt-2 text-xs text-slate-600">Sin registrarte: se crea un jugador invitado solo para ti.</p>}
         </>
       )}
 
       {estado === "hecha" && accion === "reservar" && (
-        <Link href="/mis-reservas" className="mt-2 inline-block font-medium underline">
+        <Link href="/mis-reservas" className="mt-2 inline-flex items-center gap-1 font-medium underline underline-offset-2">
           Ver mis reservas
+          <Icono nombre="flecha" className="size-3.5" />
         </Link>
       )}
     </div>
+  );
+}
+
+// "Cancha 2 · viernes 23 de octubre · 19:00 a 20:00 · $16.000", con la cancha destacada. El texto queda igual
+// (con los puntos), así el lector de pantalla lo lee tal como lo armó la API.
+function Descripcion({ texto }: { texto: string }) {
+  const [cancha, ...resto] = texto.split(" · ");
+  return (
+    <p className="mt-1.5 tabular-nums">
+      <strong className="font-semibold">{cancha}</strong>
+      {resto.length > 0 && ` · ${resto.join(" · ")}`}
+    </p>
   );
 }

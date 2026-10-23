@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Geist } from "next/font/google";
 import { Proveedores } from "./proveedores";
 import "./globals.css";
@@ -40,10 +40,18 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
+// En el celular, el teclado achica la página en vez de taparla: así el chat del asistente (que ocupa la pantalla)
+// deja el campo para escribir justo arriba del teclado. Lo respeta Chrome en Android (Safari en el iPhone no lo usa).
+export const viewport: Viewport = {
+  interactiveWidget: "resizes-content",
+};
+
+// Mientras el chat del asistente está abierto (data-panel-del-asistente), en el computador la página se corre
+// para dejarle lugar a la derecha, y en el celular la página de atrás no se mueve
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${geistSans.variable} ${barlowCondensed.variable}`}>
-      <body className="min-h-dvh bg-slate-50 font-sans text-slate-900 antialiased">
+      <body className="min-h-dvh bg-slate-50 font-sans text-slate-900 antialiased max-sm:has-[[data-panel-del-asistente]]:overflow-hidden lg:has-[[data-panel-del-asistente]]:pr-96">
         <Proveedores>{children}</Proveedores>
       </body>
     </html>

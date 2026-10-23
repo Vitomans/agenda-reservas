@@ -24,6 +24,13 @@ function dibujar(props: Partial<Props> = {}) {
 }
 
 describe("TarjetaDeConfirmacion", () => {
+  it("muestra lo que armó la API tal cual, con la cancha destacada", () => {
+    dibujar();
+
+    expect(screen.getByRole("group", { name: "¿Confirmas esta reserva?" })).toHaveTextContent(DESCRIPCION);
+    expect(screen.getByText("Cancha 2").tagName).toBe("STRONG");
+  });
+
   it("al cancelar pregunta '¿Cancelas esta reserva?', con 'Sí, cancelar' y 'No'", async () => {
     const { onResponder } = dibujar({ accion: "cancelar" });
 

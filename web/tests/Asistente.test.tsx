@@ -96,6 +96,16 @@ function simularApi(respuesta: () => Response) {
   return fetchFalso;
 }
 
+// Una pantalla de celular: matchMedia responde que la pantalla es angosta (jsdom no trae matchMedia)
+function simularCelular() {
+  vi.stubGlobal("matchMedia", (consulta: string) => ({
+    matches: true,
+    media: consulta,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+}
+
 function dibujar({ abierto = true, conSesion = true } = {}) {
   const onCerrar = vi.fn();
   const queryClient = new QueryClient();
@@ -121,10 +131,14 @@ describe("Asistente", () => {
   it("al abrirse saluda, propone preguntas y deja el cursor en el campo", () => {
     dibujar();
 
-    expect(screen.getByRole("dialog", { name: "Asistente" })).toBeInTheDocument();
+    const chat = screen.getByRole("dialog", { name: "Asistente" });
+    // Con esta marca la página le deja lugar al chat (ver app/layout.tsx)
+    expect(chat).toHaveAttribute("data-panel-del-asistente");
+    // En el computador no es modal: la grilla se puede usar al lado
+    expect(chat).not.toHaveAttribute("aria-modal");
     expect(screen.getByText(/Soy el asistente de Volea/)).toBeInTheDocument();
-    for (const sugerencia of SUGERENCIAS) {
-      expect(screen.getByRole("button", { name: sugerencia })).toBeInTheDocument();
+    for (const { texto } of SUGERENCIAS) {
+      expect(screen.getByRole("button", { name: texto })).toBeInTheDocument();
     }
     expect(screen.getByLabelText("Escribe tu pregunta")).toHaveFocus();
   });
@@ -144,17 +158,43 @@ describe("Asistente", () => {
     expect(url).toBe("/api/asistente");
     expect(String(opciones.body)).toContain("¿A qué hora abren?");
     // Las preguntas sugeridas se esconden cuando ya empezó la conversación
-    expect(screen.queryByRole("button", { name: SUGERENCIAS[0] })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: SUGERENCIAS[0].texto })).not.toBeInTheDocument();
+  });
+
+  it("mientras la IA piensa, muestra que está escribiendo", async () => {
+    // Un pedido que no termina nunca: el chat se queda esperando la respuesta
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    dibujar();
+
+    await userEvent.type(screen.getByLabelText("Escribe tu pregunta"), "Hola");
+    await userEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    expect(await screen.findByText("El asistente está escribiendo…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Detener" })).toBeInTheDocument();
+  });
+
+  it("en el celular tapa la página: es modal y Tab da la vuelta dentro del chat", async () => {
+    simularCelular();
+    dibujar();
+
+    expect(screen.getByRole("dialog", { name: "Asistente" })).toHaveAttribute("aria-modal", "true");
+    // El campo es lo último que se puede enfocar (Enviar está deshabilitado sin texto): Tab vuelve al principio
+    expect(screen.getByLabelText("Escribe tu pregunta")).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByRole("button", { name: "Cerrar el asistente" })).toHaveFocus();
+    // Y desde el principio, Shift+Tab va al final
+    await userEvent.tab({ shift: true });
+    expect(screen.getByLabelText("Escribe tu pregunta")).toHaveFocus();
   });
 
   it("una pregunta sugerida se manda al tocarla", async () => {
     const fetchFalso = simularApi(() => respuestaDeLaApi("Cuesta $12.000."));
     dibujar();
 
-    await userEvent.click(screen.getByRole("button", { name: SUGERENCIAS[0] }));
+    await userEvent.click(screen.getByRole("button", { name: SUGERENCIAS[0].texto }));
 
     expect(await screen.findByText("Cuesta $12.000.")).toBeInTheDocument();
-    expect(String((fetchFalso.mock.calls[0] as unknown as [string, RequestInit])[1].body)).toContain(SUGERENCIAS[0]);
+    expect(String((fetchFalso.mock.calls[0] as unknown as [string, RequestInit])[1].body)).toContain(SUGERENCIAS[0].texto);
     // El botón de la sugerencia desaparece, así que el cursor vuelve al campo (y Escape sigue cerrando el chat)
     expect(screen.getByLabelText("Escribe tu pregunta")).toHaveFocus();
   });
@@ -174,7 +214,7 @@ describe("Asistente", () => {
     );
     dibujar();
 
-    await userEvent.click(screen.getByRole("button", { name: SUGERENCIAS[0] }));
+    await userEvent.click(screen.getByRole("button", { name: SUGERENCIAS[0].texto }));
 
     // Primero la tarjeta con las horas y después el texto, en el orden en que llegaron
     const hora = await screen.findByRole("button", { name: "19:00, 2 canchas libres, $16.000" });
@@ -263,6 +303,8 @@ describe("Asistente", () => {
     // Reintentar no sirve: ya no se puede escribir
     expect(screen.queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Escribe tu pregunta")).toBeDisabled();
+    // El foco del teclado no se pierde: pasa al botón que lleva a la grilla
+    expect(screen.getByRole("button", { name: "Ir a la grilla" })).toHaveFocus();
 
     await userEvent.click(screen.getByRole("button", { name: "Ir a la grilla" }));
     expect(onCerrar).toHaveBeenCalled();

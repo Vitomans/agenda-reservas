@@ -36,6 +36,36 @@
       transform: translateY(0);
     }
   }
+
+  /* Animaciones del chat del asistente (ver components/asistente/Asistente.tsx) */
+  --animate-abrir-panel: abrir-panel 0.2s ease-out;
+  --animate-escribiendo: escribiendo 1.2s ease-in-out infinite;
+
+  /* El chat entra deslizándose un poco desde la derecha */
+  @keyframes abrir-panel {
+    from {
+      opacity: 0;
+      transform: translateX(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Los tres puntos de "escribiendo" se encienden uno detrás del otro */
+  @keyframes escribiendo {
+    0%,
+    80%,
+    100% {
+      opacity: 0.3;
+      transform: translateY(0);
+    }
+    40% {
+      opacity: 1;
+      transform: translateY(-2px);
+    }
+  }
 }
 
 /* Las horas ocupadas llevan rayas finas, como una red, para que se distingan sin depender solo del color */
