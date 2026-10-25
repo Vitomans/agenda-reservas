@@ -32,8 +32,8 @@ export function Portada({ horario, canchas, enVivo, onPreguntar, preguntando }: 
 
         <h1 className="mt-2 font-display text-5xl leading-[0.9] font-bold uppercase italic sm:text-6xl">Reserva tu cancha</h1>
         <p className="mt-3 max-w-md text-sm text-blue-100">
-          {canchas} canchas, de {dosDigitos(horaApertura)} a {dosDigitos(horaCierre)}. Mira los horarios libres en vivo:
-          cada reserva dura 1 hora.
+          {canchas} canchas al aire libre en Santiago Centro, de {dosDigitos(horaApertura)} a {dosDigitos(horaCierre)}. Mira
+          los horarios libres en vivo: cada reserva dura 1 hora.
         </p>
 
         <ul className="mt-4 flex flex-wrap gap-2 text-sm">

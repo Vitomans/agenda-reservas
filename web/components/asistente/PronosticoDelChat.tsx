@@ -33,7 +33,7 @@ export function PronosticoDelChat({ pedido, pronostico }: Props) {
         ))}
       </ul>
       <p className="mt-2 text-xs text-slate-500">
-        Las canchas son techadas: se juega igual. <CreditoDeMet />
+        Las canchas son al aire libre: con lluvia no se juega. <CreditoDeMet />
       </p>
     </div>
   );

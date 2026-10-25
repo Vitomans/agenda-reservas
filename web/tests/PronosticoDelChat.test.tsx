@@ -22,7 +22,7 @@ describe("PronosticoDelChat", () => {
     const [nublado, lluvia] = within(tarjeta).getAllByRole("listitem");
     expect(nublado).toHaveTextContent("parcialmente nublado19:00 a 20:0018 °C");
     expect(lluvia).toHaveTextContent("lluvia ligera20:00 a 23:0015 a 17 °C");
-    expect(within(tarjeta).getByText(/Las canchas son techadas/)).toBeInTheDocument();
+    expect(within(tarjeta).getByText(/Las canchas son al aire libre: con lluvia no se juega/)).toBeInTheDocument();
     expect(within(tarjeta).getByRole("link", { name: "Datos de MET Norway" })).toHaveAttribute("href", "https://www.met.no/en");
   });
 
