@@ -5,6 +5,7 @@ import { modeloDeGuion } from "./asistente/guion.ts";
 import { MODELO_DE_VECTORES, modeloDeVectores, modelosParaConversar } from "./asistente/modelos.ts";
 import { carteroDeBrevo, carteroDeConsola, conLimiteDiario, MAXIMO_CORREOS_AL_DIA } from "./cartero.ts";
 import { config } from "./config.ts";
+import { meteorologoDeEjemplo, meteorologoDeMetNorway } from "./meteorologo.ts";
 import { iniciarSimulador } from "./simulador.ts";
 import { crearTiempoReal } from "./tiempoReal.ts";
 
@@ -31,7 +32,10 @@ const vectores = config.GEMINI_API_KEY && !deGuion ? modeloDeVectores(config.GEM
 // Se lee el índice al arrancar: si el archivo está roto, la API no parte (y Render deja la versión anterior)
 const { pedazos } = indiceDelClub();
 
-const servidorHttp = createServer(crearApp({ avisador, cartero, modelos, modeloDeVectores: vectores }));
+// El pronóstico del tiempo se le pide a MET Norway (gratis y sin clave). En los tests e2e, uno inventado.
+const meteorologo = config.PRONOSTICO_DE_EJEMPLO ? meteorologoDeEjemplo() : meteorologoDeMetNorway();
+
+const servidorHttp = createServer(crearApp({ avisador, cartero, modelos, modeloDeVectores: vectores, meteorologo }));
 io.attach(servidorHttp);
 
 if (config.SIMULAR_CLUB) {
@@ -58,5 +62,10 @@ servidorHttp.listen(config.PORT, () => {
       (vectores
         ? `búsqueda por significado con ${MODELO_DE_VECTORES}`
         : `búsqueda por palabras (${deGuion ? "asistente de guion" : "falta GEMINI_API_KEY"})`),
+  );
+  console.log(
+    config.PRONOSTICO_DE_EJEMPLO
+      ? "Pronóstico del tiempo de ejemplo: inventado, sin internet (PRONOSTICO_DE_EJEMPLO, solo para los tests e2e)"
+      : "Pronóstico del tiempo de MET Norway (api.met.no)",
   );
 });

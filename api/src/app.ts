@@ -8,12 +8,14 @@ import swaggerUi from "swagger-ui-express";
 import { type Cartero, sinCorreos } from "./cartero.ts";
 import { config } from "./config.ts";
 import { documentacion } from "./documentacion.ts";
+import { type Meteorologo, sinPronostico } from "./meteorologo.ts";
 import { manejarErrores, rutaNoEncontrada } from "./middlewares/errores.ts";
 import { soloDesdeLaWeb } from "./middlewares/soloDesdeLaWeb.ts";
 import { crearRutasAdmin } from "./rutas/admin.ts";
 import { crearRutasAsistente } from "./rutas/asistente.ts";
 import { crearRutasAuth } from "./rutas/auth.ts";
 import { crearRutasHorario } from "./rutas/horario.ts";
+import { crearRutasPronostico } from "./rutas/pronostico.ts";
 import { crearRutasDisponibilidad, crearRutasRecursos } from "./rutas/recursos.ts";
 import { crearRutasReservas } from "./rutas/reservas.ts";
 import { type Avisador, sinAvisos } from "./tiempoReal.ts";
@@ -27,18 +29,22 @@ import { type Avisador, sinAvisos } from "./tiempoReal.ts";
 // server.ts le pasa las de verdad y los tests, unas falsas.
 // "modeloDeVectores" es la que busca en la información del club por significado (sin ella, busca por palabras).
 // Por defecto no hay ninguna, así un test nunca gasta la cuota de la IA sin querer.
+// "meteorologo" es el que trae el pronóstico del tiempo (ver meteorologo.ts). Por defecto no hay pronóstico,
+// así los tests no dependen de internet.
 export function crearApp({
   avisador = sinAvisos,
   cartero = sinCorreos,
   claveDeLaWeb = config.CLAVE_DE_LA_WEB,
   modelos = [],
   modeloDeVectores = null,
+  meteorologo = sinPronostico,
 }: {
   avisador?: Avisador;
   cartero?: Cartero;
   claveDeLaWeb?: string;
   modelos?: LanguageModelV4[];
   modeloDeVectores?: EmbeddingModel | null;
+  meteorologo?: Meteorologo;
 } = {}) {
   const app = express();
 
@@ -76,6 +82,7 @@ export function crearApp({
   app.use("/api/horario", crearRutasHorario());
   app.use("/api/recursos", crearRutasRecursos());
   app.use("/api/disponibilidad", crearRutasDisponibilidad());
+  app.use("/api/pronostico", crearRutasPronostico(meteorologo));
   app.use("/api/reservas", crearRutasReservas(avisador, cartero));
   app.use("/api/admin", crearRutasAdmin());
   app.use("/api/asistente", crearRutasAsistente({ modelos, modeloDeVectores, avisador, cartero }));

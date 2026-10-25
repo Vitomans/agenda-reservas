@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CIELOS } from "./meteorologo.ts";
 import { MENSAJES_AL_DIA, MENSAJES_CADA_10_MINUTOS, MENSAJES_DEL_CLUB_AL_DIA } from "./rutas/asistente.ts";
 import { MAXIMO_RESERVAS_ACTIVAS } from "./servicios/reservas.ts";
 import { MAXIMO_CARACTERES_POR_MENSAJE, MENSAJES_QUE_SE_MANDAN } from "./validacion/asistente.ts";
@@ -109,6 +110,17 @@ const esquemas = {
       precio: pesos,
     },
     required: ["inicio", "fin", "hora", "estado", "precio"],
+  },
+  HoraDelPronostico: {
+    type: "object",
+    properties: {
+      hora: { type: "string", example: "19:00", description: "En la hora del club. El tiempo es el de cuando empieza esa hora." },
+      grados: { type: "integer", example: 18, description: "Temperatura en °C" },
+      cielo: { type: "string", enum: [...CIELOS], example: "lluvia-ligera" },
+      descripcion: { type: "string", example: "lluvia ligera", description: "El cielo en palabras" },
+      deNoche: { type: "boolean", description: "Si a esa hora ya es de noche (para elegir el ícono)" },
+    },
+    required: ["hora", "grados", "cielo", "descripcion", "deNoche"],
   },
   HoraDelClub: {
     type: "object",
@@ -283,6 +295,7 @@ export const documentacion = {
   tags: [
     { name: "Sesión", description: "Registro, login y jugadores invitados" },
     { name: "Horarios", description: "Las canchas, sus horarios libres y los precios. Se ven sin iniciar sesión." },
+    { name: "Pronóstico", description: "El tiempo en Santiago a cada hora del club. Datos de MET Norway (licencia CC BY 4.0)." },
     { name: "Reservas", description: "Reservar y cancelar (jugadores)" },
     { name: "Admin", description: "El panel del dueño del club (solo ADMIN)" },
     { name: "Asistente", description: "El chat con IA: responde preguntas del club y reserva con la confirmación de la persona" },
@@ -413,6 +426,27 @@ export const documentacion = {
             properties: { fecha: { type: "string", format: "date" }, horas: { type: "array", items: ref("HoraDelClub") } },
           }),
           400: error("La fecha falta, está mal escrita o queda fuera de los próximos 7 días"),
+        },
+      },
+    },
+    "/api/pronostico": {
+      get: {
+        tags: ["Pronóstico"],
+        summary: "El pronóstico del tiempo de un día, hora por hora",
+        description: [
+          "La temperatura y el cielo a cada hora del club, con datos de MET Norway (el instituto de meteorología de Noruega).",
+          "Las canchas son techadas: sirve para saber qué llevar y cómo llegar.",
+          "Hora por hora en los próximos 2 o 3 días y en bloques de 6 horas después. La API guarda el pronóstico unos 30 minutos.",
+          "Las horas que ya terminaron no vienen.",
+        ].join("\n"),
+        parameters: [parametroFecha],
+        responses: {
+          200: respuestaJson("El pronóstico del día", {
+            type: "object",
+            properties: { fecha: { type: "string", format: "date" }, horas: { type: "array", items: ref("HoraDelPronostico") } },
+          }),
+          400: error("La fecha falta, está mal escrita o queda fuera de los próximos 7 días"),
+          503: error("El servicio del pronóstico no responde"),
         },
       },
     },
