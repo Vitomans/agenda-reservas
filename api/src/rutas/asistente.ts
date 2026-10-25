@@ -21,13 +21,13 @@ import { conversacionValida } from "../validacion/asistente.ts";
 export const MENSAJES_CADA_10_MINUTOS = 20;
 export const MENSAJES_AL_DIA = 30;
 
-// Entre todos los visitantes. Se midió con Groq que cada pedido a la IA lleva unos 1.470 tokens solo de
-// instrucciones y herramientas, y que una respuesta que consulta los horarios son 2 pedidos: unos 3.300 tokens,
-// y más a medida que crece la conversación. Con 200.000 tokens al día por modelo, los 3 modelos de Groq alcanzan
-// para unas 140 respuestas al día (Qwen cuenta las palabras de otra forma, y el mismo pedido le pesa un 40 % más).
-// Se dejan 120: el resto queda de margen para las conversaciones largas y las pruebas con la IA de verdad.
-// Cada visitante puede usar un cuarto (MENSAJES_AL_DIA).
-export const MENSAJES_DEL_CLUB_AL_DIA = 120;
+// Entre todos los visitantes. Se midió con Groq que cada pedido a la IA lleva unos 1.740 tokens solo de
+// instrucciones y herramientas (1.470 antes de la herramienta del pronóstico), y que una respuesta que consulta
+// los horarios son 2 pedidos: unos 3.700 tokens, y más a medida que crece la conversación. Con 200.000 tokens al día
+// por modelo, los 3 modelos de Groq alcanzan para unas 125 respuestas al día (Qwen cuenta las palabras de otra forma,
+// y el mismo pedido le pesa un 40 % más). Se dejan 110: el resto queda de margen para las conversaciones largas
+// y las pruebas con la IA de verdad. Cada visitante puede usar más o menos un cuarto (MENSAJES_AL_DIA).
+export const MENSAJES_DEL_CLUB_AL_DIA = 110;
 
 // Lo que ve la persona si la IA falla a mitad de la respuesta. El detalle queda en el log y nunca llega a la página.
 export const MENSAJE_DE_ERROR = "El asistente tuvo un problema y no pudo responder. Prueba de nuevo en unos segundos.";
