@@ -150,7 +150,7 @@ export function casos({ dias, horasDeManana, conUnaReserva, conDosReservas }: Co
     {
       tema: "Información del club",
       conversacion: [persona("¿Dónde me estaciono?")],
-      revisiones: [usa("buscarInformacion"), dice(/gratis/iu, "que el estacionamiento es gratis")],
+      revisiones: [usa("buscarInformacion"), dice(/gratis|gratuit/iu, "que el estacionamiento es gratis")],
     },
     {
       tema: "Información del club",

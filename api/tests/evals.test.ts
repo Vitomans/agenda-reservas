@@ -74,6 +74,13 @@ describe("casos", () => {
     expect(revisar(caso, { texto: "No, el club no tiene sauna.", herramientas: busqueda })).toHaveLength(2);
   });
 
+  it('"estacionamiento gratuito" también es decir que es gratis', () => {
+    const caso = casoQueEmpiezaCon("¿Dónde me estaciono?");
+    const busqueda = [{ nombre: "buscarInformacion", entrada: { pregunta: "estacionamiento" }, estado: "output-available" }];
+
+    expect(revisar(caso, { texto: "Hay estacionamiento gratuito para 30 autos.", herramientas: busqueda })).toEqual([]);
+  });
+
   it("con una hora ocupada entre medio, no acepta un rango de horas que la incluya", () => {
     const caso = casoQueEmpiezaCon("¿Hay cancha mañana después de las 7?");
     const horarios = [{ nombre: "verHorariosLibres", entrada: { fecha: manana, desde: 19 }, estado: "output-available" }];
@@ -112,7 +119,7 @@ describe("respuestaDelMensaje", () => {
 describe("evaluarCaso", () => {
   it("le hace el caso al asistente y junta los problemas de la respuesta", async () => {
     const modelo = new MockLanguageModelV4({
-      doStream: [pasoQuePide("verHorariosLibres", { fecha: manana, desde: 19 }), pasoQueEscribe("Hay libres. ¿Querés reservar?")],
+      doStream: [pasoQuePide("verHorariosLibres", { fecha: manana, desde: 19 }), pasoQueEscribe("**Hay libres.** ¿Querés reservar?")],
     });
     const caso = casos(contextoFalso)[0]; // "¿Hay cancha mañana después de las 7?"
 
@@ -121,7 +128,9 @@ describe("evaluarCaso", () => {
     expect(resultado.respuesta.herramientas).toEqual([
       { nombre: "verHorariosLibres", entrada: { fecha: manana, desde: 19 }, estado: "output-available" },
     ]);
-    expect(resultado.problemas).toEqual(['Dice palabras de "vos": "Querés"']);
+    // El voseo lo corrige el filtro, como en la página (ver voseo.ts); el Markdown queda como problema
+    expect(resultado.respuesta.texto).toBe("**Hay libres.** ¿Quieres reservar?");
+    expect(resultado.problemas).toEqual(['Dice Markdown: "**"']);
     expect(resultado.pedidos).toBe(2);
   });
 

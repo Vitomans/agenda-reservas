@@ -6,6 +6,7 @@ import { crearAsistente } from "../asistente/asistente.ts";
 import { crearAnotadorDelGasto } from "../asistente/gasto.ts";
 import { puedeUsarGemini } from "../asistente/modelos.ts";
 import { CadenaDeRespaldo, SinModelosDisponibles } from "../asistente/respaldo.ts";
+import { filtroSinVoseo } from "../asistente/voseo.ts";
 import type { Cartero } from "../cartero.ts";
 import type { Meteorologo } from "../meteorologo.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
@@ -149,6 +150,8 @@ export function crearRutasAsistente({
       headers: { "Cache-Control": "no-cache, no-transform" },
       // El modelo "razona" antes de responder; la página solo necesita la respuesta
       sendReasoning: false,
+      // Cambia "podés" o "podís" por "puedes" mientras la respuesta llega (ver voseo.ts)
+      experimental_transform: filtroSinVoseo(),
       // La página lee el error como JSON, igual que las respuestas de error de antes de empezar
       onError: (error) => {
         if (error instanceof SinModelosDisponibles) return JSON.stringify(sinAsistente(error.vuelveEnMs));

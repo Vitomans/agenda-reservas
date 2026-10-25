@@ -88,7 +88,7 @@ export function noDiceUnRangoCon(ocupada: string): Revision {
 // confunden con otra cosa ("elegí" también es "yo elegí", así que solo cuenta al empezar una frase, como una orden).
 // (?<!\p{L}) y (?!\p{L}) marcan dónde empieza y termina la palabra: \b no sirve con las letras con tilde.
 const VOSEO =
-  /(?<!\p{L})(podés|querés|tenés|sabés|podís|querís|sabís|tocá|mirá|fijate|decime|contame|avisame|escribime|reservá|confirmá|cancelá)(?!\p{L})|(^|[.!?¡¿]\s*)elegí(?!\p{L})/iu;
+  /(?<!\p{L})(podés|querés|tenés|sabés|podís|querís|tenís|sabís|tocá|mirá|fijate|decime|contame|avisame|escribime|reservá|confirmá|cancelá)(?!\p{L})|(^|[.!?¡¿]\s*)elegí(?!\p{L})/iu;
 
 // Las instrucciones piden texto simple: el chat no dibuja Markdown, y se verían los asteriscos y los #
 const MARKDOWN = /\*\*|__|^#{1,6}\s|^\s*\*\s|^\s*\|.*\|\s*$/mu;

@@ -52,6 +52,18 @@ describe("POST /api/asistente", () => {
     expect(pedazos.map((evento) => evento.delta)).toEqual(["¡Hola! ", "¿En qué ", "te ayudo?"]);
   });
 
+  it("la página recibe la respuesta de 'tú', aunque el modelo escriba 'podís' (ver voseo.test.ts)", async () => {
+    const app = crearApp({ modelos: [modeloQueResponde(["Con lluvia no se juega, y pod", "ís cancelar sin costo."])] });
+
+    const respuesta = await escribirle(app, [mensajeDeLaPersona("Si llueve, ¿se suspende mi partido?")]);
+
+    const texto = eventos(respuesta.body)
+      .filter((evento) => evento.type === "text-delta")
+      .map((evento) => evento.delta)
+      .join("");
+    expect(texto).toBe("Con lluvia no se juega, y puedes cancelar sin costo.");
+  });
+
   it("le pasa al modelo las instrucciones del club con la fecha de hoy", async () => {
     const modelo = modeloQueResponde(["Hola"]);
     const app = crearApp({ modelos: [modelo] });

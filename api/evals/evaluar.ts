@@ -2,6 +2,7 @@ import { APICallError, type LanguageModelV4 } from "@ai-sdk/provider";
 import { createAgentUIStream, type EmbeddingModel, getToolName, isToolUIPart, readUIMessageStream, type UIMessage, wrapLanguageModel } from "ai";
 import { crearAsistente } from "../src/asistente/asistente.ts";
 import type { Paso } from "../src/asistente/gasto.ts";
+import { filtroSinVoseo } from "../src/asistente/voseo.ts";
 import type { Meteorologo } from "../src/meteorologo.ts";
 import { conversacionValida } from "../src/validacion/asistente.ts";
 import type { Caso } from "./casos.ts";
@@ -9,9 +10,9 @@ import { type Respuesta, revisionesDeEstilo } from "./revisar.ts";
 
 // Le hace un caso al asistente y revisa la respuesta.
 //
-// El asistente se arma igual que en la ruta /api/asistente (crearAsistente y conversacionValida), y la respuesta
-// se lee igual que en la página (como un mensaje con sus partes). Lo único distinto es que no pasa por Express:
-// así las evals no chocan con el límite de mensajes por visitante.
+// El asistente se arma igual que en la ruta /api/asistente (crearAsistente y conversacionValida), la respuesta pasa
+// por el mismo filtro del voseo (voseo.ts) y se lee igual que en la página (como un mensaje con sus partes). Lo único
+// distinto es que no pasa por Express: así las evals no chocan con el límite de mensajes por visitante.
 
 export type Resultado = {
   caso: Caso;
@@ -57,6 +58,7 @@ export async function evaluarCaso(
     agent: asistente,
     uiMessages: mensajes,
     sendReasoning: false,
+    experimental_transform: filtroSinVoseo(),
     onError: (error) => {
       fallo = error;
       return "";
