@@ -8,7 +8,7 @@ import { db } from "../src/db.ts";
 import { meteorologoDeEjemplo, meteorologoDeMetNorway } from "../src/meteorologo.ts";
 import { diasReservables, ZONA_HORARIA } from "../src/servicios/horario.ts";
 import { crearInvitado } from "../src/servicios/invitados.ts";
-import { crearReserva, disponibilidadDelClub } from "../src/servicios/reservas.ts";
+import { crearReserva, disponibilidadDelClub, MAXIMO_RESERVAS_ACTIVAS } from "../src/servicios/reservas.ts";
 import { type Contexto, casos, preguntaDelCaso } from "./casos.ts";
 import { esperandoLaCuota, evaluarCaso, type Resultado } from "./evaluar.ts";
 
@@ -39,17 +39,39 @@ const meteorologo = deGuion ? meteorologoDeEjemplo() : meteorologoDeMetNorway();
 
 const numero = (n: number) => n.toLocaleString("es-CL");
 
-// Dos jugadores invitados con reservas mañana, en horas distintas a la que piden los casos de reservar.
-// Son invitados de verdad: si las evals se cortan a la mitad, la API los borra sola al día siguiente.
+// Ocupa todas las canchas de una hora de la noche de mañana que tenga alguna cancha libre antes y después (las 20:00,
+// si se puede), como pasa en la demo publicada con los socios simulados. Así "¿Hay cancha mañana después de las 7?"
+// revisa que el asistente no diga un rango ("de 19:00 a 22:00") que incluya la hora ocupada.
+// Las reservas son de invitados, de a MAXIMO_RESERVAS_ACTIVAS por invitado.
+async function ocuparUnaHoraDeLaNoche(manana: string): Promise<{ ocupada?: string; invitados: string[] }> {
+  const deNoche = (await disponibilidadDelClub(manana)).filter((h) => Number(h.hora.slice(0, 2)) >= 19);
+  const conLibre = (j: number) => deNoche[j]?.canchas.some((cancha) => cancha.estado === "libre") ?? false;
+  const i = deNoche.findIndex((_, j) => j > 0 && conLibre(j - 1) && conLibre(j + 1));
+  if (i === -1) return { invitados: [] };
+
+  const { hora, inicio, canchas } = deNoche[i];
+  const libres = canchas.filter((cancha) => cancha.estado === "libre");
+  const invitados: string[] = [];
+  for (let j = 0; j < libres.length; j += MAXIMO_RESERVAS_ACTIVAS) {
+    const invitado = await crearInvitado();
+    invitados.push(invitado.id);
+    for (const cancha of libres.slice(j, j + MAXIMO_RESERVAS_ACTIVAS)) await crearReserva(invitado.id, cancha.id, inicio);
+  }
+  return { ocupada: hora, invitados };
+}
+
+// Además de la hora ocupada, dos jugadores invitados con reservas mañana, en horas distintas a la que piden los casos
+// de reservar. Son invitados de verdad: si las evals se cortan a la mitad, la API los borra sola al día siguiente.
 async function prepararContexto(): Promise<Contexto & { invitados: string[] }> {
   const dias = diasReservables();
   const manana = dias[1];
 
+  const { ocupada, invitados: deLaHoraOcupada } = await ocuparUnaHoraDeLaNoche(manana);
   const delClub = await disponibilidadDelClub(manana);
   const deNoche = horasLibres(delClub, { desde: 19 });
   const horasDeManana =
     deNoche.horas.length > 0
-      ? { pedido: { fecha: manana, desde: 19 }, horarios: deNoche }
+      ? { pedido: { fecha: manana, desde: 19 }, horarios: deNoche, ocupada }
       : { pedido: { fecha: manana, desde: 8 }, horarios: horasLibres(delClub, { desde: 8 }) };
   const horaPedida = horasDeManana.horarios.horas[0]?.hora;
   if (!horaPedida) throw new Error(`Mañana (${manana}) no queda ninguna hora libre: las evals necesitan una.`);
@@ -75,7 +97,7 @@ async function prepararContexto(): Promise<Contexto & { invitados: string[] }> {
     horasDeManana,
     conUnaReserva: { usuario: uno, reservaId: reserva.id },
     conDosReservas: { usuario: dos },
-    invitados: [uno.id, dos.id],
+    invitados: [uno.id, dos.id, ...deLaHoraOcupada],
   };
 }
 

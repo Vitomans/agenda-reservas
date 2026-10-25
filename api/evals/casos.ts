@@ -3,7 +3,7 @@ import type { HorariosLibres } from "../src/asistente/herramientas.ts";
 import { nombreDelDia } from "../src/asistente/textos.ts";
 import { ZONA_HORARIA } from "../src/servicios/horario.ts";
 import type { UsuarioSesion } from "../src/servicios/sesion.ts";
-import { dice, noDice, noUsa, pideConfirmar, type Revision, sinHerramientas, usa } from "./revisar.ts";
+import { dice, noDice, noDiceUnRangoCon, noUsa, pideConfirmar, type Revision, sinHerramientas, usa } from "./revisar.ts";
 
 // Los casos de las evals: preguntas que se le hacen al asistente con la IA de verdad, y lo que se revisa en
 // cada respuesta (ver revisar.ts). Además, todas las respuestas pasan por las revisiones de estilo.
@@ -34,8 +34,9 @@ export type Caso = {
 export type Contexto = {
   dias: string[]; // los 7 días que se pueden reservar, desde hoy
   // Las horas libres de mañana desde las 19:00 (o desde la apertura, si en la noche no queda ninguna),
-  // con el pedido que las trajo. La primera es la hora que se pide reservar.
-  horasDeManana: { pedido: { fecha: string; desde: number }; horarios: HorariosLibres };
+  // con el pedido que las trajo. La primera es la hora que se pide reservar. "ocupada" es una hora de la noche
+  // con todas las canchas ocupadas entre dos con alguna libre (por ejemplo, "20:00"), si correr.ts pudo armarla.
+  horasDeManana: { pedido: { fecha: string; desde: number }; horarios: HorariosLibres; ocupada?: string };
   conUnaReserva: { usuario: UsuarioSesion; reservaId: string };
   conDosReservas: { usuario: UsuarioSesion };
 };
@@ -69,7 +70,7 @@ export function casos({ dias, horasDeManana, conUnaReserva, conDosReservas }: Co
   // El primer sábado que se puede reservar (puede ser hoy)
   const sabado = dias.find((dia) => DateTime.fromISO(dia, { zone: ZONA_HORARIA }).weekday === 6)!;
 
-  const { pedido, horarios } = horasDeManana;
+  const { pedido, horarios, ocupada } = horasDeManana;
   const { hora, canchas } = horarios.horas[0];
   const h = Number(hora.slice(0, 2));
   const pedirReserva = `Resérvame una cancha mañana a las ${hora}`;
@@ -86,8 +87,13 @@ export function casos({ dias, horasDeManana, conUnaReserva, conDosReservas }: Co
     // ---------- Horarios: que consulte antes de responder, con el día y las horas correctas ----------
     {
       tema: "Horarios",
+      ...(ocupada ? { nota: `con las ${ocupada} ocupada` } : {}),
       conversacion: [persona("¿Hay cancha mañana después de las 7?")],
-      revisiones: [usa("verHorariosLibres", { fecha: manana, desde: 19 }), noUsa("reservar")],
+      revisiones: [
+        usa("verHorariosLibres", { fecha: manana, desde: 19 }),
+        noUsa("reservar"),
+        ...(ocupada ? [noDiceUnRangoCon(ocupada)] : []),
+      ],
     },
     {
       tema: "Horarios",

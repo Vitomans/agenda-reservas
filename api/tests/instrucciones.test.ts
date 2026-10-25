@@ -66,6 +66,9 @@ describe("instrucciones del asistente", () => {
     expect(texto).toContain("No digas que quedó reservada o cancelada hasta tener el resultado");
     expect(texto).toContain("busca la reserva con verMisReservas y usa cancelarReserva");
     expect(texto).not.toContain("Todavía no puedes reservar");
+    // Copió el ejemplo anterior ("Mañana hay libres de 19:00 a 22:00") con las 20:00 ocupada
+    expect(texto).toContain('No digas "de X a Y" si alguna hora de entre medio está ocupada');
+    expect(texto).not.toContain("Mañana hay libres de 19:00 a 22:00");
   });
 
   it("piden usar verPronostico, avisar que con lluvia no se juega y mencionar el pronóstico al reservar", () => {

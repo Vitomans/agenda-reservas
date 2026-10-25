@@ -66,6 +66,22 @@ export function noDice(patron: RegExp, que: string): Revision {
   };
 }
 
+// "de 19:00 a 22:00", "desde las 19 hasta las 22", "entre las 19:00 y las 22:00"
+const RANGO_DE_HORAS = /(?<!\p{L})(?:de|desde|entre)(?: las)? (\d{1,2})(?::\d\d)? (?:a|hasta|y)(?: las)? (\d{1,2})(?::\d\d)?/giu;
+
+// Que no resuma las horas libres con un rango que incluye una hora ocupada: "Mañana hay libres de 19:00 a 22:00"
+// con las 20:00 ocupada hace creer que las 20:00 también está libre. El modelo lo escribió copiando el ejemplo
+// de sus instrucciones. La última hora del rango no cuenta: "de 19:00 a 20:00" puede ser solo la hora de las 19:00.
+export function noDiceUnRangoCon(ocupada: string): Revision {
+  const hora = Number(ocupada.slice(0, 2));
+  return ({ texto }) => {
+    for (const [rango, desde, hasta] of texto.matchAll(RANGO_DE_HORAS)) {
+      if (Number(desde) <= hora && hora < Number(hasta)) return `Dice un rango ("${rango}") que incluye las ${ocupada}, que está ocupada`;
+    }
+    return null;
+  };
+}
+
 // ---------- El estilo, que se revisa en todas las respuestas ----------
 
 // Las instrucciones piden hablar de "tú". Solo las formas de "vos" (también las chilenas, como "podís") que no se

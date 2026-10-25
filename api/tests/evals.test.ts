@@ -24,6 +24,7 @@ const contextoFalso: Contexto = {
   horasDeManana: {
     pedido: { fecha: manana, desde: 19 },
     horarios: { horas: [{ hora: "19:00", precio: 16000, canchas: ["Cancha 1", "Cancha 3"] }], tusReservas: [] },
+    ocupada: "20:00",
   },
   conUnaReserva: { usuario: { id: "jugador-1", rol: "CLIENTE" }, reservaId: "reserva-1" },
   conDosReservas: { usuario: { id: "jugador-2", rol: "CLIENTE" } },
@@ -71,6 +72,22 @@ describe("casos", () => {
 
     expect(revisar(caso, { texto: "Según los servicios del club, no se menciona sauna.", herramientas: busqueda })).toEqual([]);
     expect(revisar(caso, { texto: "No, el club no tiene sauna.", herramientas: busqueda })).toHaveLength(2);
+  });
+
+  it("con una hora ocupada entre medio, no acepta un rango de horas que la incluya", () => {
+    const caso = casoQueEmpiezaCon("¿Hay cancha mañana después de las 7?");
+    const horarios = [{ nombre: "verHorariosLibres", entrada: { fecha: manana, desde: 19 }, estado: "output-available" }];
+    const problemas = (texto: string) => revisar(caso, { texto, herramientas: horarios });
+
+    expect(preguntaDelCaso(caso)).toBe("¿Hay cancha mañana después de las 7? (con las 20:00 ocupada)");
+    expect(problemas("Mañana quedan horas libres desde las 19:00, a $16.000.")).toEqual([]);
+    expect(problemas("Mañana hay libres a las 19:00, 21:00 y 22:00.")).toEqual([]);
+    expect(problemas("Mañana hay libres de 21:00 a 22:00.")).toEqual([]);
+    expect(problemas("Mañana hay libres de 19:00 a 22:00, a $16.000.")).toEqual([
+      'Dice un rango ("de 19:00 a 22:00") que incluye las 20:00, que está ocupada',
+    ]);
+    expect(problemas("Hay canchas entre las 19 y las 22.")).toHaveLength(1);
+    expect(problemas("Desde las 20:00 hasta las 22:00 hay canchas.")).toHaveLength(1);
   });
 
   it("cada conversación tiene el formato que acepta la API", async () => {
