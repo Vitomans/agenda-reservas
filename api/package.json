@@ -14,7 +14,8 @@
     "db:migrar": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:reiniciar": "prisma migrate reset",
-    "indexar": "tsx scripts/indexar.ts"
+    "indexar": "tsx scripts/indexar.ts",
+    "evals": "tsx evals/correr.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.104",
