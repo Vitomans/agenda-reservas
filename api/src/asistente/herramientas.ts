@@ -1,7 +1,9 @@
 import { type EmbeddingModel, tool } from "ai";
 import { z } from "zod";
 import { sinCorreos } from "../cartero.ts";
+import { CIELOS, type Meteorologo, sinPronostico } from "../meteorologo.ts";
 import { diasReservables } from "../servicios/horario.ts";
+import { describirTramo, pronosticoDelDia, tramosDelPronostico } from "../servicios/pronostico.ts";
 import { disponibilidadDelClub } from "../servicios/reservas.ts";
 import { sinAvisos } from "../tiempoReal.ts";
 import { buscarEnElClub, pedazoPorId } from "./conocimiento.ts";
@@ -82,22 +84,27 @@ async function verHorariosLibres({ fecha, ...filtros }: PedidoDeHorarios, usuari
   return horasLibres(await disponibilidadDelClub(fecha, usuarioId), filtros);
 }
 
-// Lo que lee el modelo. La página recibe el resultado completo para dibujar los botones,
-// pero al modelo le basta un texto corto, y así gasta menos tokens que con el JSON.
-//
-// Horas libres el viernes 23 de octubre (2026-10-23) desde las 19:00:
-// 19:00 $16.000: Cancha 2, Cancha 4
-// 20:00 $16.000: Cancha 1
-export function resumenParaLaIA({ fecha, desde, hasta }: PedidoDeHorarios, { horas, tusReservas, aviso }: HorariosLibres) {
-  if (aviso) return aviso;
-
-  const cuando = [
+// "el viernes 23 de octubre (2026-10-23) desde las 19:00"
+function cuandoDelPedido({ fecha, desde, hasta }: PedidoDeHorarios) {
+  return [
     `el ${nombreDelDia(fecha)} (${fecha})`,
     desde !== undefined && `desde las ${horaEnPunto(desde)}`,
     hasta !== undefined && `hasta las ${horaEnPunto(hasta)}`,
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+// Lo que lee el modelo. La página recibe el resultado completo para dibujar los botones,
+// pero al modelo le basta un texto corto, y así gasta menos tokens que con el JSON.
+//
+// Horas libres el viernes 23 de octubre (2026-10-23) desde las 19:00:
+// 19:00 $16.000: Cancha 2, Cancha 4
+// 20:00 $16.000: Cancha 1
+export function resumenParaLaIA(pedido: PedidoDeHorarios, { horas, tusReservas, aviso }: HorariosLibres) {
+  if (aviso) return aviso;
+
+  const cuando = cuandoDelPedido(pedido);
 
   const lineas =
     horas.length === 0
@@ -159,15 +166,74 @@ export function informacionParaLaIA({ fuentes }: InformacionDelClub) {
   return pedazos.map(({ documento, seccion, texto }) => `[${documento} › ${seccion}]\n${texto}`).join("\n\n");
 }
 
+// Lo que pide verPronostico: el día y, si quiere, desde y hasta qué hora, como verHorariosLibres.
+// Sin las descripciones de cada campo: la de la herramienta ya lo explica, y así cada pedido a la IA lleva menos tokens.
+const esquemaPedidoDePronostico = z.object({
+  fecha: esquemaDeFecha,
+  desde: z.number().int().min(0).max(23).optional(),
+  hasta: z.number().int().min(0).max(23).optional(),
+});
+
+type PedidoDePronostico = z.infer<typeof esquemaPedidoDePronostico>;
+
+// Lo que devuelve verPronostico: el tiempo de ese día por tramos (las horas seguidas con el mismo cielo).
+// La página lo muestra como una tarjeta (ver web/components/asistente).
+export const esquemaPronosticoDelChat = z.object({
+  tramos: z.array(
+    z.object({
+      desde: z.string(),
+      hasta: z.string(),
+      cielo: z.enum(CIELOS),
+      descripcion: z.string(),
+      deNoche: z.boolean(),
+      minima: z.number(),
+      maxima: z.number(),
+    }),
+  ),
+  // Por qué no hay pronóstico, por ejemplo si el día no se puede reservar o si el servicio no responde
+  aviso: z.string().optional(),
+});
+
+export type PronosticoDelChat = z.infer<typeof esquemaPronosticoDelChat>;
+
+async function verPronostico({ fecha, desde, hasta }: PedidoDePronostico, meteorologo: Meteorologo): Promise<PronosticoDelChat> {
+  const dias = diasReservables();
+  if (!dias.includes(fecha)) {
+    return { tramos: [], aviso: `Solo hay pronóstico de los días que se pueden reservar: desde hoy hasta el ${nombreDelDia(dias.at(-1)!)}.` };
+  }
+
+  const datos = await meteorologo.datos();
+  if (!datos) return { tramos: [], aviso: "El pronóstico no está disponible en este momento." };
+
+  const horas = pronosticoDelDia(datos, fecha).filter(({ hora }) => {
+    const numero = Number(hora.slice(0, 2));
+    return (desde === undefined || numero >= desde) && (hasta === undefined || numero <= hasta);
+  });
+  return { tramos: tramosDelPronostico(horas) };
+}
+
+// Lo que lee el modelo:
+//
+// Pronóstico en Santiago el sábado 24 de octubre (2026-10-24) desde las 19:00:
+// 19:00 a 21:00: lluvia ligera, 16 a 18 °C
+// 21:00 a 23:00: nublado, 14 °C
+export function pronosticoParaLaIA(pedido: PedidoDePronostico, { tramos, aviso }: PronosticoDelChat) {
+  if (aviso) return aviso;
+  if (tramos.length === 0) return `No hay pronóstico para ${cuandoDelPedido(pedido)}.`;
+  return [`Pronóstico en Santiago ${cuandoDelPedido(pedido)}:`, ...tramos.map(describirTramo)].join("\n");
+}
+
 // Se arman en cada mensaje con el usuario de la sesión (o sin usuario, si no entró): así la IA ve las reservas
 // propias como propias, igual que la grilla de la página, y reserva a nombre de quien conversa.
 // "modeloDeVectores" es el que busca en la información del club por significado; sin él, se busca por palabras.
 // "avisador" y "cartero" avisan en vivo y envían el correo al reservar o cancelar (ver reservas.ts).
+// "meteorologo" trae el pronóstico del tiempo (ver meteorologo.ts).
 export function crearHerramientas({
   usuario,
   modeloDeVectores = null,
   avisador = sinAvisos,
   cartero = sinCorreos,
+  meteorologo = sinPronostico,
 }: Partial<ContextoDeReservas> & { modeloDeVectores?: EmbeddingModel | null } = {}) {
   return {
     verHorariosLibres: tool({
@@ -187,7 +253,15 @@ export function crearHerramientas({
       execute: (pedido) => buscarInformacion(pedido, modeloDeVectores),
       toModelOutput: ({ output }) => ({ type: "text", value: informacionParaLaIA(output) }),
     }),
-    ...crearHerramientasDeReservas({ usuario, avisador, cartero }),
+    verPronostico: tool({
+      description:
+        "El tiempo en Santiago un día que se puede reservar. desde y hasta son horas (19 = las 19:00), para ver solo esas.",
+      inputSchema: esquemaPedidoDePronostico,
+      outputSchema: esquemaPronosticoDelChat,
+      execute: (pedido) => verPronostico(pedido, meteorologo),
+      toModelOutput: ({ input, output }) => ({ type: "text", value: pronosticoParaLaIA(input, output) }),
+    }),
+    ...crearHerramientasDeReservas({ usuario, avisador, cartero, meteorologo }),
   };
 }
 

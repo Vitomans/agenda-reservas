@@ -1,5 +1,6 @@
 import { type EmbeddingModel, isStepCount, type LanguageModel, ToolLoopAgent } from "ai";
 import type { Cartero } from "../cartero.ts";
+import type { Meteorologo } from "../meteorologo.ts";
 import type { UsuarioSesion } from "../servicios/sesion.ts";
 import type { Avisador } from "../tiempoReal.ts";
 import type { Paso } from "./gasto.ts";
@@ -21,6 +22,7 @@ const MAXIMO_TOKENS_DE_RESPUESTA = 800;
 // y las herramientas, el usuario de la sesión (undefined si la persona no entró).
 // "modeloDeVectores" es el que busca en la información del club por significado (ver conocimiento.ts),
 // y "avisador" y "cartero", los que avisan en vivo y envían el correo al reservar o cancelar.
+// "meteorologo" trae el pronóstico del tiempo (ver meteorologo.ts).
 // "alTerminar" recibe los pasos de la respuesta, con los tokens que gastó cada uno (ver gasto.ts).
 export function crearAsistente(
   modelo: LanguageModel,
@@ -29,6 +31,7 @@ export function crearAsistente(
     modeloDeVectores = null,
     avisador,
     cartero,
+    meteorologo,
     ahora = new Date(),
     alTerminar,
   }: {
@@ -36,6 +39,7 @@ export function crearAsistente(
     modeloDeVectores?: EmbeddingModel | null;
     avisador?: Avisador;
     cartero?: Cartero;
+    meteorologo?: Meteorologo;
     ahora?: Date;
     alTerminar?: (pasos: Paso[]) => void;
   } = {},
@@ -43,7 +47,7 @@ export function crearAsistente(
   return new ToolLoopAgent({
     model: modelo,
     instructions: instrucciones(ahora),
-    tools: crearHerramientas({ usuario, modeloDeVectores, avisador, cartero }),
+    tools: crearHerramientas({ usuario, modeloDeVectores, avisador, cartero, meteorologo }),
     // Reservar y cancelar esperan a que la persona toque "Confirmar" (ver reservas.ts)
     toolApproval: confirmacionesDeReservas(usuario),
     stopWhen: isStepCount(MAXIMO_PASOS),

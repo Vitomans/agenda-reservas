@@ -7,6 +7,7 @@ import { crearAnotadorDelGasto } from "../asistente/gasto.ts";
 import { puedeUsarGemini } from "../asistente/modelos.ts";
 import { CadenaDeRespaldo, SinModelosDisponibles } from "../asistente/respaldo.ts";
 import type { Cartero } from "../cartero.ts";
+import type { Meteorologo } from "../meteorologo.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
 import { sesionOpcional } from "../middlewares/sesion.ts";
 import { ipDelVisitante } from "../middlewares/soloDesdeLaWeb.ts";
@@ -62,17 +63,20 @@ function limiteDeMensajes(minutos: number, limite: number, respuesta: { error: s
 // "modeloDeVectores" es null cuando no hay clave de Gemini: el asistente busca en la información del club por palabras.
 // "avisador" y "cartero" son los mismos de las rutas de las reservas: al reservar por el chat se avisa en vivo
 // y se envía el correo, igual que al reservar en la grilla.
+// "meteorologo" trae el pronóstico del tiempo: el mismo de la barra para reservar, así los dos usan la misma consulta.
 // Es una función por la misma razón que crearRutasAuth: cada app de los tests tiene sus propios contadores.
 export function crearRutasAsistente({
   modelos,
   modeloDeVectores,
   avisador,
   cartero,
+  meteorologo,
 }: {
   modelos: LanguageModelV4[];
   modeloDeVectores: EmbeddingModel | null;
   avisador: Avisador;
   cartero: Cartero;
+  meteorologo: Meteorologo;
 }) {
   const rutas = Router();
   // Una sola cadena para todos los mensajes: así recuerda qué modelos están descansando
@@ -126,6 +130,7 @@ export function crearRutasAsistente({
       modeloDeVectores: conGemini ? modeloDeVectores : null,
       avisador,
       cartero,
+      meteorologo,
       alTerminar: anotarGasto,
     });
     const mensajes = await conversacionValida(req.body, asistente.tools);

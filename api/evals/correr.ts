@@ -5,6 +5,7 @@ import { horasLibres } from "../src/asistente/herramientas.ts";
 import { MODELOS_DE_GROQ, modeloDeVectores, modelosParaConversar } from "../src/asistente/modelos.ts";
 import { config } from "../src/config.ts";
 import { db } from "../src/db.ts";
+import { meteorologoDeEjemplo, meteorologoDeMetNorway } from "../src/meteorologo.ts";
 import { diasReservables, ZONA_HORARIA } from "../src/servicios/horario.ts";
 import { crearInvitado } from "../src/servicios/invitados.ts";
 import { crearReserva, disponibilidadDelClub } from "../src/servicios/reservas.ts";
@@ -33,6 +34,8 @@ if (!modelo) {
   process.exit(1);
 }
 const vectores = config.GEMINI_API_KEY && !deGuion ? modeloDeVectores(config.GEMINI_API_KEY) : null;
+// El pronóstico de verdad, como en la demo publicada (con el guion, el de ejemplo: así no depende de internet)
+const meteorologo = deGuion ? meteorologoDeEjemplo() : meteorologoDeMetNorway();
 
 const numero = (n: number) => n.toLocaleString("es-CL");
 
@@ -136,7 +139,7 @@ const resultados: Resultado[] = [];
 try {
   const lista = casos(contexto);
   for (const [i, caso] of lista.entries()) {
-    const resultado = await evaluarCaso(esperandoLaCuota(modelo), caso, { modeloDeVectores: vectores });
+    const resultado = await evaluarCaso(esperandoLaCuota(modelo), caso, { modeloDeVectores: vectores, meteorologo });
     resultados.push(resultado);
     const marca = resultado.problemas.length === 0 ? "✅" : "❌";
     console.log(

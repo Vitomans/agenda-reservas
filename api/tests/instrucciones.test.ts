@@ -66,6 +66,15 @@ describe("instrucciones del asistente", () => {
     expect(texto).not.toContain("Todavía no puedes reservar");
   });
 
+  it("piden usar verPronostico, recordar que las canchas son techadas y mencionar el pronóstico al reservar", () => {
+    const texto = instrucciones(JUEVES_EN_LA_TARDE);
+
+    expect(texto).toContain("el tiempo para venir a jugar");
+    expect(texto).toContain("Para el tiempo, usa verPronostico. Nunca lo inventes.");
+    expect(texto).toContain("Las canchas son techadas: el tiempo no cambia la reserva");
+    expect(texto).toContain("Si reservar trae el pronóstico, menciónalo en una frase");
+  });
+
   it("pasado medianoche, 'hoy' ya es el día siguiente en el club", () => {
     // 03:30 UTC del viernes 23 son las 00:30 del viernes en Chile
     expect(instrucciones(new Date("2026-10-23T03:30:00Z"))).toContain("hoy viernes 23 de octubre (2026-10-23)");

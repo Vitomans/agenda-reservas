@@ -7,6 +7,7 @@ import type { MisReservasDelChat, ResultadoDeCancelacion, ResultadoDeReserva } f
 import { nombreDelDia, pesos } from "../src/asistente/textos.ts";
 import type { Cartero } from "../src/cartero.ts";
 import { db } from "../src/db.ts";
+import { meteorologoDeEjemplo } from "../src/meteorologo.ts";
 import { ZONA_HORARIA } from "../src/servicios/horario.ts";
 import { precioDelBloque } from "../src/servicios/precios.ts";
 import {
@@ -118,6 +119,25 @@ describe("reservar por el chat", () => {
     // El modelo lee que quedó reservada, y con eso responde
     expect(JSON.stringify(modelo.doStreamCalls[1].prompt)).toContain(`Quedó reservada: ${cancha.nombre} · `);
     expect(segunda.body).toContain("¡Listo, quedó reservada!");
+  });
+
+  it("al confirmar, el modelo también lee el pronóstico de esa hora (sin otro pedido a la IA), si lo hay", async () => {
+    const cancha = await crearCanchaDePrueba();
+    const pedido = { fecha: dia(1), hora: 21, cancha: cancha.nombre };
+    const modelo = modeloQuePide("reservar", pedido, "¡Listo! Trae paraguas.");
+    const app = crearApp({ modelos: [modelo], meteorologo: meteorologoDeEjemplo() });
+    const ana = await entrarComoJugadorNuevo(app);
+    const pregunta = mensajeDeLaPersona("Resérvame mañana a las 9 de la noche");
+
+    const primera = await escribirle(app, [pregunta], ana.navegador);
+    const { approvalId } = pedidoDeConfirmacion(primera.body)!;
+    const segunda = await escribirle(app, [pregunta, respuestaALaTarjeta("reservar", pedido, true, approvalId)], ana.navegador);
+
+    // En el pronóstico de ejemplo, a las 21:00 llueve y hay 16 °C
+    expect(resultadoDeLaHerramienta<ResultadoDeReserva>(segunda.body)?.pronostico).toEqual({ grados: 16, descripcion: "lluvia ligera" });
+    expect(JSON.stringify(modelo.doStreamCalls[1].prompt)).toContain(" · $16.000. Pronóstico para esa hora en Santiago: lluvia ligera, 16 °C.");
+    // Son los mismos 2 pedidos a la IA que sin pronóstico
+    expect(modelo.doStreamCalls).toHaveLength(2);
   });
 
   it("si la persona no confirma, no reserva y el modelo recibe que no se aprobó", async () => {

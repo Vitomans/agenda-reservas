@@ -4,8 +4,10 @@ import request from "supertest";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { crearApp } from "../src/app.ts";
 import { indiceDelClub } from "../src/asistente/conocimiento.ts";
-import type { HorariosLibres, InformacionDelClub } from "../src/asistente/herramientas.ts";
+import type { HorariosLibres, InformacionDelClub, PronosticoDelChat } from "../src/asistente/herramientas.ts";
+import { nombreDelDia } from "../src/asistente/textos.ts";
 import { db } from "../src/db.ts";
+import { meteorologoDeEjemplo } from "../src/meteorologo.ts";
 import { CABECERA_CLAVE, CABECERA_IP, CABECERA_PAIS } from "../src/middlewares/soloDesdeLaWeb.ts";
 import {
   ASISTENTE_DESCANSANDO,
@@ -383,6 +385,42 @@ describe("la herramienta verHorariosLibres", () => {
 
     expect(resultadoDeLaHerramienta<HorariosLibres>(respuesta.body)).toMatchObject({ horas: [], aviso: expect.stringMatching(/no se puede reservar/) });
     expect(JSON.stringify(modelo.doStreamCalls[1].prompt)).toContain("Ese día no se puede reservar: solo desde hoy hasta el");
+  });
+});
+
+describe("la herramienta verPronostico", () => {
+  it("el modelo la pide, la página recibe el tiempo por tramos y el modelo, un resumen corto", async () => {
+    const modelo = new MockLanguageModelV4({
+      doStream: [pasoQuePide("verPronostico", { fecha: dia(1), desde: 19 }), pasoQueEscribe("Mañana desde las 20:00 llueve.")],
+    });
+    const app = crearApp({ modelos: [modelo], meteorologo: meteorologoDeEjemplo() });
+
+    const respuesta = await escribirle(app, [mensajeDeLaPersona("¿Va a llover mañana en la noche?")]);
+
+    expect(respuesta.status).toBe(200);
+    // En el pronóstico de ejemplo, hasta las 20:00 está parcialmente nublado y después llueve
+    const { tramos } = resultadoDeLaHerramienta<PronosticoDelChat>(respuesta.body)!;
+    expect(tramos).toEqual([
+      { desde: "19:00", hasta: "20:00", cielo: "parcial", descripcion: "parcialmente nublado", deNoche: false, minima: 18, maxima: 18 },
+      { desde: "20:00", hasta: "23:00", cielo: "lluvia-ligera", descripcion: "lluvia ligera", deNoche: false, minima: 15, maxima: 17 },
+    ]);
+    expect(JSON.stringify(modelo.doStreamCalls[1].prompt)).toContain(
+      `Pronóstico en Santiago el ${nombreDelDia(dia(1))} (${dia(1)}) desde las 19:00:\\n19:00 a 20:00: parcialmente nublado, 18 °C\\n20:00 a 23:00: lluvia ligera, 15 a 17 °C`,
+    );
+  });
+
+  it("si no hay pronóstico (el servicio no responde) o el día no se puede reservar, el modelo recibe un aviso para decirlo", async () => {
+    const sinServicio = new MockLanguageModelV4({
+      doStream: [pasoQuePide("verPronostico", { fecha: dia(1) }), pasoQueEscribe("No tengo el pronóstico.")],
+    });
+    await escribirle(crearApp({ modelos: [sinServicio] }), [mensajeDeLaPersona("¿Va a llover mañana?")]);
+    expect(JSON.stringify(sinServicio.doStreamCalls[1].prompt)).toContain("El pronóstico no está disponible en este momento.");
+
+    const lejos = new MockLanguageModelV4({
+      doStream: [pasoQuePide("verPronostico", { fecha: dia(7) }), pasoQueEscribe("Ese día todavía no.")],
+    });
+    await escribirle(crearApp({ modelos: [lejos], meteorologo: meteorologoDeEjemplo() }), [mensajeDeLaPersona("¿Y en una semana?")]);
+    expect(JSON.stringify(lejos.doStreamCalls[1].prompt)).toContain("Solo hay pronóstico de los días que se pueden reservar");
   });
 });
 

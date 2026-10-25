@@ -6,7 +6,7 @@ import { nombreDelDia, pesos } from "./textos.ts";
 
 // El asistente "de guion": un modelo de mentira que no le pregunta nada a una IA. Lee la conversación y responde
 // con reglas fijas ("hay cancha" → pide los horarios libres, "reservar a las 19" → pide la reserva, "cancela" →
-// busca las reservas y pide cancelar la primera).
+// busca las reservas y pide cancelar la primera, "llover" → pide el pronóstico).
 //
 // Lo usan los tests e2e (ver web/tests/e2e/asistente.spec.ts): la API arranca con ASISTENTE_DE_GUION=true y el
 // chat se prueba de punta a punta sin gastar la cuota de la IA ni depender de internet. Lo único falso es el
@@ -93,8 +93,13 @@ function responder(prompt: LanguageModelV4Prompt) {
       const id = /\(id ([^)]+)\)/.exec(resultado.texto)?.[1];
       if (id) return pide("cancelarReserva", { reservaId: id });
     }
+    // Del pronóstico repite el primer tramo (la primera línea es el título)
+    if (resultado?.herramienta === "verPronostico") {
+      const [titulo, tramo] = resultado.texto.split("\n");
+      return escribe(tramo ? `En Santiago, de ${tramo}.` : titulo);
+    }
     // Repite la primera línea de lo que leyó (sin el título de la sección, si es la información del club)
-    const linea = resultado?.texto.split("\n").find((l) => l && !l.startsWith("[")) ?? "";
+    const linea =resultado?.texto.split("\n").find((l) => l && !l.startsWith("[")) ?? "";
     return escribe(resultado?.herramienta === "buscarInformacion" ? `Según la información del club: ${linea}` : linea);
   }
 
@@ -102,6 +107,10 @@ function responder(prompt: LanguageModelV4Prompt) {
 
   const fecha = diaDelMensaje(texto);
   const hora = /a las (\d{1,2})/.exec(texto)?.[1];
+
+  if (/llov|lluvia|pronostico|clima|que tiempo/.test(texto)) {
+    return pide("verPronostico", hora ? { fecha, desde: horaDelClub(hora), hasta: horaDelClub(hora) } : { fecha });
+  }
   if (/reserv/.test(texto) && hora) {
     const h = horaDelClub(hora);
     // La cancha que nombra, o la primera libre a esa hora en los horarios que ya mostró

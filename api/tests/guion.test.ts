@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { crearApp } from "../src/app.ts";
 import { modeloDeGuion } from "../src/asistente/guion.ts";
 import { db } from "../src/db.ts";
+import { meteorologoDeEjemplo } from "../src/meteorologo.ts";
 import { diasReservables } from "../src/servicios/horario.ts";
 import { escribirle, eventos, mensajeDeLaPersona } from "./ayudantesDelAsistente.ts";
 
@@ -13,7 +14,7 @@ afterAll(async () => {
 });
 
 async function preguntar(texto: string) {
-  const app = crearApp({ modelos: [modeloDeGuion()] });
+  const app = crearApp({ modelos: [modeloDeGuion()], meteorologo: meteorologoDeEjemplo() });
   const respuesta = await escribirle(app, [mensajeDeLaPersona(texto)]);
   const todos = eventos(respuesta.body as string);
   return {
@@ -48,6 +49,14 @@ describe("asistente de guion", () => {
 
     expect(herramientas).toEqual([]);
     expect(texto).toBe("La hora de cancha cuesta $12.000, y $16.000 en hora punta.");
+  });
+
+  it("pide el pronóstico del día (y de la hora, si la dice) y repite el primer tramo", async () => {
+    const { herramientas, texto } = await preguntar("¿Va a llover mañana a las 7?");
+
+    expect(herramientas).toEqual([{ herramienta: "verPronostico", entrada: { fecha: manana, desde: 19, hasta: 19 } }]);
+    expect(texto).toBe("En Santiago, de 19:00 a 20:00: parcialmente nublado, 18 °C.");
+    expect((await preguntar("¿Qué tiempo hará mañana?")).herramientas).toEqual([{ herramienta: "verPronostico", entrada: { fecha: manana } }]);
   });
 
   it("lo demás lo busca en la información del club", async () => {

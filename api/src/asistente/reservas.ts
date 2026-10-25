@@ -3,10 +3,12 @@ import { DateTime } from "luxon";
 import { z } from "zod";
 import type { Cartero } from "../cartero.ts";
 import { db } from "../db.ts";
+import type { Meteorologo } from "../meteorologo.ts";
 import { ErrorHttp } from "../middlewares/errores.ts";
 import { enviarCorreoDeLaReserva } from "../servicios/correos.ts";
 import { diasReservables, HORA_APERTURA, HORA_CIERRE, ZONA_HORARIA } from "../servicios/horario.ts";
 import { precioDelBloque } from "../servicios/precios.ts";
+import { pronosticoDelDia } from "../servicios/pronostico.ts";
 import { cancelarReserva, crearReserva, MAXIMO_RESERVAS_ACTIVAS, reservasProximas } from "../servicios/reservas.ts";
 import type { UsuarioSesion } from "../servicios/sesion.ts";
 import type { Avisador } from "../tiempoReal.ts";
@@ -23,12 +25,13 @@ import { esquemaDeFecha, horaEnPunto, nombreDelDia, pesos } from "./textos.ts";
 // con el usuario de la sesión. Aunque alguien engañe a la IA o escriba la conversación a mano, no puede hacer
 // más de lo que ya puede hacer en la página.
 
-// Lo que necesitan las herramientas: quién conversa (undefined si no entró) y cómo avisar de los cambios,
-// igual que las rutas de las reservas (ver rutas/reservas.ts)
+// Lo que necesitan las herramientas: quién conversa (undefined si no entró), cómo avisar de los cambios,
+// igual que las rutas de las reservas (ver rutas/reservas.ts), y el pronóstico del tiempo para la hora reservada
 export type ContextoDeReservas = {
   usuario?: UsuarioSesion;
   avisador: Avisador;
   cartero: Cartero;
+  meteorologo: Meteorologo;
 };
 
 // Una reserva como la ven la IA y la página del chat
@@ -66,9 +69,11 @@ const esquemaPedidoDeReserva = z.object({
 
 type PedidoDeReserva = z.infer<typeof esquemaPedidoDeReserva>;
 
-// Lo que devuelve reservar: la reserva hecha, o por qué no se pudo
+// Lo que devuelve reservar: la reserva hecha, o por qué no se pudo. Con la reserva va el pronóstico de esa hora
+// (si lo hay), y así el asistente lo menciona al confirmarla, sin hacerle otro pedido a la IA.
 export const esquemaResultadoDeReserva = z.object({
   reserva: esquemaReservaDelChat.optional(),
+  pronostico: z.object({ grados: z.number(), descripcion: z.string() }).optional(),
   aviso: z.string().optional(),
 });
 
@@ -137,8 +142,15 @@ async function confirmacionDeReserva(pedido: PedidoDeReserva, usuario?: UsuarioS
   return { type: "user-approval", reason: describirReserva({ cancha: recurso.nombre, fecha: pedido.fecha, hora: horaEnPunto(pedido.hora), precio }) };
 }
 
+// El tiempo a la hora de una reserva: { grados: 18, descripcion: "lluvia ligera" }, o undefined si no hay pronóstico
+async function pronosticoDeLaReserva(meteorologo: Meteorologo, { fecha, hora }: ReservaDelChat) {
+  const datos = await meteorologo.datos();
+  const deLaHora = datos && pronosticoDelDia(datos, fecha).find((h) => h.hora === hora);
+  return deLaHora ? { grados: deLaHora.grados, descripcion: deLaHora.descripcion } : undefined;
+}
+
 // Solo llega aquí después de que la persona confirmó
-async function reservar(pedido: PedidoDeReserva, { usuario, avisador, cartero }: ContextoDeReservas): Promise<ResultadoDeReserva> {
+async function reservar(pedido: PedidoDeReserva, { usuario, avisador, cartero, meteorologo }: ContextoDeReservas): Promise<ResultadoDeReserva> {
   // Al tocar "Confirmar" sin haber entrado, la página primero crea un jugador invitado. Esto solo pasa
   // si alguien manda la confirmación a mano, sin sesión.
   if (!usuario) return { aviso: "Para reservar hay que entrar, o tocar Confirmar en la tarjeta para reservar como invitado." };
@@ -153,7 +165,8 @@ async function reservar(pedido: PedidoDeReserva, { usuario, avisador, cartero }:
     avisador.reservaCreada({ recursoId: reserva.recurso.id, inicio: reserva.inicio });
     void enviarCorreoDeLaReserva(cartero, reserva.id, { tipo: "confirmada" });
 
-    return { reserva: reservaDelChat(reserva) };
+    const hecha = reservaDelChat(reserva);
+    return { reserva: hecha, pronostico: await pronosticoDeLaReserva(meteorologo, hecha) };
   } catch (error) {
     // Lo que no deja crearReserva (por ejemplo, si otra persona tomó la hora en ese mismo segundo) se le explica a la IA
     if (error instanceof ErrorHttp) return { aviso: error.message };
@@ -251,9 +264,12 @@ export function crearHerramientasDeReservas(contexto: ContextoDeReservas) {
       inputSchema: esquemaPedidoDeReserva,
       outputSchema: esquemaResultadoDeReserva,
       execute: (pedido) => reservar(pedido, contexto),
-      toModelOutput: ({ output }) => ({
+      toModelOutput: ({ output: { reserva, pronostico, aviso } }) => ({
         type: "text",
-        value: output.reserva ? `Quedó reservada: ${describirReserva(output.reserva)}.` : (output.aviso ?? "No se pudo reservar."),
+        value: reserva
+          ? `Quedó reservada: ${describirReserva(reserva)}.` +
+            (pronostico ? ` Pronóstico para esa hora en Santiago: ${pronostico.descripcion}, ${pronostico.grados} °C.` : "")
+          : (aviso ?? "No se pudo reservar."),
       }),
     }),
     verMisReservas: tool({

@@ -599,7 +599,7 @@ export const documentacion = {
           `La página guarda la conversación y la manda completa en cada mensaje (la API usa los últimos ${MENSAJES_QUE_SE_MANDAN}), así la API no guarda nada.`,
           "La respuesta llega de a poco (*streaming*), con el protocolo de mensajes del AI SDK: una línea `data: {...}` por evento.",
           "",
-          "El asistente usa herramientas: `verHorariosLibres`, `buscarInformacion` (los documentos del club), `reservar`, `verMisReservas` y `cancelarReserva`.",
+          "El asistente usa herramientas: `verHorariosLibres`, `buscarInformacion` (los documentos del club), `verPronostico` (el tiempo en Santiago), `reservar`, `verMisReservas` y `cancelarReserva`.",
           "**Reservar y cancelar esperan a la persona:** la respuesta termina con un evento `tool-approval-request`, y para confirmar se vuelve a mandar",
           "la conversación con esa parte en el estado `approval-responded` (`approved: true`). Antes de pedir la confirmación, la API revisa que se pueda hacer;",
           "si no, la rechaza sola y el asistente explica por qué.",

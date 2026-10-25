@@ -85,7 +85,7 @@ export function crearApp({
   app.use("/api/pronostico", crearRutasPronostico(meteorologo));
   app.use("/api/reservas", crearRutasReservas(avisador, cartero));
   app.use("/api/admin", crearRutasAdmin());
-  app.use("/api/asistente", crearRutasAsistente({ modelos, modeloDeVectores, avisador, cartero }));
+  app.use("/api/asistente", crearRutasAsistente({ modelos, modeloDeVectores, avisador, cartero, meteorologo }));
 
   app.use(rutaNoEncontrada);
   app.use(manejarErrores);

@@ -11,7 +11,14 @@ import { dice, noDice, noUsa, pideConfirmar, type Revision, sinHerramientas, usa
 // Cada caso es una conversación con el mismo formato que manda la página. La mayoría es una sola pregunta;
 // algunos traen mensajes anteriores (por ejemplo, la tarjeta que la persona rechazó).
 
-export type Tema = "Horarios" | "Precios y reglas" | "Información del club" | "Reservar y cancelar" | "Seguridad" | "Estilo";
+export type Tema =
+  | "Horarios"
+  | "Precios y reglas"
+  | "Información del club"
+  | "Pronóstico"
+  | "Reservar y cancelar"
+  | "Seguridad"
+  | "Estilo";
 
 export type Caso = {
   tema: Tema;
@@ -159,6 +166,18 @@ export function casos({ dias, horasDeManana, conUnaReserva, conDosReservas }: Co
         // Los documentos no hablan de un sauna: no sabe si el club tiene o no
         noDice(/no (hay|tenemos|tiene|cuenta con|contamos con|existe)( un| una)? sauna|sin sauna/iu, "que el club no tiene sauna"),
       ],
+    },
+
+    // ---------- Pronóstico del tiempo: que lo consulte, y que no cambie la reserva (las canchas son techadas) ----------
+    {
+      tema: "Pronóstico",
+      conversacion: [persona("¿Va a llover el sábado en la tarde?")],
+      revisiones: [usa("verPronostico", (e) => e.fecha === sabado, `fecha ${sabado}`), noUsa("reservar")],
+    },
+    {
+      tema: "Pronóstico",
+      conversacion: [persona("Si llueve, ¿se suspende mi partido?")],
+      revisiones: [dice(/techad/iu, "que las canchas son techadas"), noUsa("cancelarReserva")],
     },
 
     // ---------- Reservar y cancelar: siempre con la confirmación de la persona ----------

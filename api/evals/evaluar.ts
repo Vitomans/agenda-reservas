@@ -2,6 +2,7 @@ import { APICallError, type LanguageModelV4 } from "@ai-sdk/provider";
 import { createAgentUIStream, type EmbeddingModel, getToolName, isToolUIPart, readUIMessageStream, type UIMessage, wrapLanguageModel } from "ai";
 import { crearAsistente } from "../src/asistente/asistente.ts";
 import type { Paso } from "../src/asistente/gasto.ts";
+import type { Meteorologo } from "../src/meteorologo.ts";
 import { conversacionValida } from "../src/validacion/asistente.ts";
 import type { Caso } from "./casos.ts";
 import { type Respuesta, revisionesDeEstilo } from "./revisar.ts";
@@ -44,11 +45,11 @@ export function respuestaDelMensaje(mensaje: UIMessage | undefined): Respuesta {
 export async function evaluarCaso(
   modelo: LanguageModelV4,
   caso: Caso,
-  { modeloDeVectores = null }: { modeloDeVectores?: EmbeddingModel | null } = {},
+  { modeloDeVectores = null, meteorologo }: { modeloDeVectores?: EmbeddingModel | null; meteorologo?: Meteorologo } = {},
 ): Promise<Resultado> {
   const inicio = performance.now();
   let pasos: Paso[] = [];
-  const asistente = crearAsistente(modelo, { usuario: caso.usuario, modeloDeVectores, alTerminar: (p) => (pasos = p) });
+  const asistente = crearAsistente(modelo, { usuario: caso.usuario, modeloDeVectores, meteorologo, alTerminar: (p) => (pasos = p) });
   const mensajes = await conversacionValida({ messages: caso.conversacion }, asistente.tools);
 
   let fallo: unknown;
