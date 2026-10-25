@@ -38,6 +38,8 @@ describe("instrucciones del asistente", () => {
 
     expect(texto).toContain("Usa verHorariosLibres antes de decir si hay cancha");
     expect(texto).toContain("No las repitas una por una");
+    // Las evals encontraron que a "¿Puedo reservar a las 6?" respondía "no hay disponibilidad", sin el horario
+    expect(texto).toContain("Si piden una hora en que el club está cerrado, di el horario del club");
   });
 
   it("piden hablar de 'tú' con ejemplos, porque el modelo a veces escribía 'podés' o 'elegí'", () => {
@@ -57,6 +59,8 @@ describe("instrucciones del asistente", () => {
     const texto = instrucciones(JUEVES_EN_LA_TARDE);
 
     expect(texto).toContain("Para reservar, usa reservar con el día, la hora y la cancha");
+    // Las evals encontraron que preguntaba "¿Quieres que la reserve?" antes de mostrar la tarjeta
+    expect(texto).toContain("no le preguntes si quiere: usa reservar");
     expect(texto).toContain("No digas que quedó reservada o cancelada hasta tener el resultado");
     expect(texto).toContain("busca la reserva con verMisReservas y usa cancelarReserva");
     expect(texto).not.toContain("Todavía no puedes reservar");
