@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { MENSAJES_AL_DIA, MENSAJES_CADA_10_MINUTOS, MENSAJES_DEL_CLUB_AL_DIA } from "./rutas/asistente.ts";
 import { MAXIMO_RESERVAS_ACTIVAS } from "./servicios/reservas.ts";
+import { MAXIMO_CARACTERES_POR_MENSAJE, MENSAJES_QUE_SE_MANDAN } from "./validacion/asistente.ts";
 import { esquemaLogin, esquemaRegistro } from "./validacion/auth.ts";
 import { esquemaEditarRecurso, esquemaNuevoRecurso } from "./validacion/recursos.ts";
 import { esquemaNuevaReserva } from "./validacion/reservas.ts";
@@ -221,6 +223,32 @@ const esquemas = {
     },
     required: ["fecha", "dia", "semana", "horaMasPedida"],
   },
+  MensajeDelChat: {
+    type: "object",
+    description: "Un mensaje de la conversación, con el formato de los mensajes del AI SDK (UIMessage)",
+    properties: {
+      id: { type: "string" },
+      role: { type: "string", enum: ["user", "assistant"] },
+      parts: {
+        type: "array",
+        description:
+          "Las partes del mensaje, en orden: `text` (lo que se escribió) y, en las respuestas del asistente, `step-start` y `tool-<herramienta>` (cada herramienta que usó, con lo que pidió y lo que recibió)",
+        items: { type: "object", properties: { type: { type: "string", example: "text" } }, required: ["type"] },
+      },
+    },
+    required: ["id", "role", "parts"],
+  },
+  ErrorDelAsistente: {
+    type: "object",
+    properties: {
+      error: { type: "string", example: "El asistente está descansando. Mientras tanto, puedes reservar en la grilla." },
+      cerrarElChat: {
+        type: "boolean",
+        description: "true si el asistente no va a poder responder por un buen rato: la página cierra el chat y ofrece la grilla",
+      },
+    },
+    required: ["error"],
+  },
   Correo: {
     type: "object",
     properties: {
@@ -257,6 +285,7 @@ export const documentacion = {
     { name: "Horarios", description: "Las canchas, sus horarios libres y los precios. Se ven sin iniciar sesión." },
     { name: "Reservas", description: "Reservar y cancelar (jugadores)" },
     { name: "Admin", description: "El panel del dueño del club (solo ADMIN)" },
+    { name: "Asistente", description: "El chat con IA: responde preguntas del club y reserva con la confirmación de la persona" },
   ],
   paths: {
     "/api/salud": {
@@ -525,6 +554,83 @@ export const documentacion = {
           403: error("Solo admins"),
           404: error("La cancha no existe"),
           409: error("Ya existe una cancha con ese nombre"),
+        },
+      },
+    },
+    "/api/asistente": {
+      post: {
+        tags: ["Asistente"],
+        summary: "Le escribe al asistente de IA y recibe la respuesta de a poco",
+        description: [
+          `La página guarda la conversación y la manda completa en cada mensaje (la API usa los últimos ${MENSAJES_QUE_SE_MANDAN}), así la API no guarda nada.`,
+          "La respuesta llega de a poco (*streaming*), con el protocolo de mensajes del AI SDK: una línea `data: {...}` por evento.",
+          "",
+          "El asistente usa herramientas: `verHorariosLibres`, `buscarInformacion` (los documentos del club), `reservar`, `verMisReservas` y `cancelarReserva`.",
+          "**Reservar y cancelar esperan a la persona:** la respuesta termina con un evento `tool-approval-request`, y para confirmar se vuelve a mandar",
+          "la conversación con esa parte en el estado `approval-responded` (`approved: true`). Antes de pedir la confirmación, la API revisa que se pueda hacer;",
+          "si no, la rechaza sola y el asistente explica por qué.",
+          "",
+          "Se puede usar sin iniciar sesión. Con sesión, el asistente ve las reservas propias y reserva a nombre de quien conversa.",
+          `Límites: ${MAXIMO_CARACTERES_POR_MENSAJE} caracteres por mensaje, ${MENSAJES_CADA_10_MINUTOS} mensajes cada 10 minutos y ${MENSAJES_AL_DIA} al día por visitante,`,
+          `y ${MENSAJES_DEL_CLUB_AL_DIA} al día entre todos (la cuota gratis de la IA).`,
+          "",
+          "En esta página, *Try it out* muestra la respuesta completa al final, no de a poco.",
+        ].join("\n"),
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { messages: { type: "array", items: ref("MensajeDelChat") } },
+                required: ["messages"],
+              },
+              example: { messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "¿Hay cancha mañana después de las 7?" }] }] },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "La respuesta, evento por evento (cabecera `x-vercel-ai-ui-message-stream: v1`)",
+            content: {
+              "text/event-stream": {
+                schema: { type: "string" },
+                example: [
+                  '{"type":"start"}',
+                  '{"type":"start-step"}',
+                  '{"type":"tool-input-available","toolCallId":"call_1","toolName":"verHorariosLibres","input":{"fecha":"2026-10-26","desde":19}}',
+                  '{"type":"tool-output-available","toolCallId":"call_1","output":{"horas":[{"hora":"19:00","precio":16000,"canchas":["Cancha 2","Cancha 4"]}],"tusReservas":[]}}',
+                  '{"type":"finish-step"}',
+                  '{"type":"start-step"}',
+                  '{"type":"text-start","id":"t1"}',
+                  '{"type":"text-delta","id":"t1","delta":"Mañana hay libres a las 19:00, "}',
+                  '{"type":"text-delta","id":"t1","delta":"a $16.000 por ser hora punta."}',
+                  '{"type":"text-end","id":"t1"}',
+                  '{"type":"finish-step"}',
+                  '{"type":"finish","finishReason":"stop"}',
+                  "[DONE]",
+                ]
+                  .map((evento) => `data: ${evento}`)
+                  .join("\n\n"),
+              },
+            },
+          },
+          400: error(
+            `La conversación no tiene el formato esperado, trae instrucciones (\`system\`), partes que el asistente no conoce o un mensaje de más de ${MAXIMO_CARACTERES_POR_MENSAJE} caracteres`,
+          ),
+          429: {
+            description: `Demasiados mensajes: ${MENSAJES_CADA_10_MINUTOS} cada 10 minutos o ${MENSAJES_AL_DIA} al día por visitante (el del día trae \`cerrarElChat\`)`,
+            content: {
+              "application/json": {
+                schema: ref("ErrorDelAsistente"),
+                example: { error: "Le escribiste muchos mensajes seguidos al asistente. Espera unos minutos y vuelve a probar." },
+              },
+            },
+          },
+          503: respuestaJson(
+            "El asistente no puede responder: la IA no está configurada, todos los modelos se quedaron sin cuota o el club llegó al máximo de mensajes del día",
+            ref("ErrorDelAsistente"),
+          ),
         },
       },
     },

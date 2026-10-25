@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import request from "supertest";
 import { afterAll, describe, expect, it } from "vitest";
 import { crearApp } from "../src/app.ts";
+import { modeloDeGuion } from "../src/asistente/guion.ts";
 import { db } from "../src/db.ts";
 import { borrarDatosDePrueba, dia } from "./ayudantes.ts";
 
@@ -35,6 +36,21 @@ describe("documentación de la API", () => {
     // Los cuerpos salen de los esquemas de Zod: el registro pide al menos 8 caracteres de contraseña
     const registro = respuesta.body.paths["/api/auth/registro"].post.requestBody.content["application/json"].schema;
     expect(registro.properties.password.minLength).toBe(8);
+  });
+
+  it("el ejemplo del asistente es una conversación que la API acepta", async () => {
+    const { paths } = (await request(crearApp()).get("/docs/openapi.json")).body as Documentacion;
+    const asistente = paths["/api/asistente"].post as {
+      requestBody: { content: { "application/json": { example: object } } };
+    };
+
+    // Con el asistente de guion, para no gastar la cuota de la IA
+    const respuesta = await request(crearApp({ modelos: [modeloDeGuion()] }))
+      .post("/api/asistente")
+      .send(asistente.requestBody.content["application/json"].example);
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.headers["content-type"]).toContain("text/event-stream");
   });
 
   it("cada ruta documentada existe en la API", async () => {
