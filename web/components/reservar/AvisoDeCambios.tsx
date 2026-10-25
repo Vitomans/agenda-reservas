@@ -2,11 +2,18 @@ import { textoDelCambio, type CambioEnLaGrilla } from "@/lib/cambios";
 
 // Un aviso arriba de la pantalla cuando otra persona reserva o libera una hora de la grilla que se está mirando.
 // La región está siempre en la página, aunque vacía, para que los lectores de pantalla lean cada aviso nuevo.
+//
+// Con el chat del asistente abierto, el aviso se centra en el espacio que queda a su izquierda: si no, el chat
+// (que va encima) lo tapa a medias. En una tablet el chat flota a 1 rem del borde (25 rem en total), y en el
+// computador es una columna de 24 rem pegada al borde (ver Asistente.tsx).
 export function AvisoDeCambios({ cambios }: { cambios: CambioEnLaGrilla[] }) {
   const texto = textoDelCambio(cambios);
 
   return (
-    <div role="status" className="pointer-events-none fixed inset-x-0 top-3 z-20 flex justify-center px-4">
+    <div
+      role="status"
+      className="pointer-events-none fixed inset-x-0 top-3 z-20 flex justify-center px-4 sm:[body:has([data-panel-del-asistente])_&]:right-100 lg:[body:has([data-panel-del-asistente])_&]:right-96"
+    >
       {texto && (
         <p
           // Con otra "key" el aviso se vuelve a dibujar y repite la animación de entrada
