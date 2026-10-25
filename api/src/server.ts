@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { crearApp } from "./app.ts";
 import { indiceDelClub } from "./asistente/conocimiento.ts";
+import { modeloDeGuion } from "./asistente/guion.ts";
 import { MODELO_DE_VECTORES, modeloDeVectores, modelosParaConversar } from "./asistente/modelos.ts";
 import { carteroDeBrevo, carteroDeConsola, conLimiteDiario, MAXIMO_CORREOS_AL_DIA } from "./cartero.ts";
 import { config } from "./config.ts";
@@ -20,10 +21,13 @@ const cartero = conLimiteDiario(
 );
 
 // Con las claves de Groq y Gemini el asistente conversa (con los modelos de Groq y, de último respaldo, Gemini);
-// sin ninguna, responde que no está disponible
-const modelos = modelosParaConversar({ groq: config.GROQ_API_KEY, gemini: config.GEMINI_API_KEY });
-// Con la clave de Gemini busca en la información del club por significado; sin ella, por palabras
-const vectores = config.GEMINI_API_KEY ? modeloDeVectores(config.GEMINI_API_KEY) : null;
+// sin ninguna, responde que no está disponible. En los tests e2e responde con un guion fijo, sin IA.
+const deGuion = config.ASISTENTE_DE_GUION;
+const modelos = deGuion
+  ? [modeloDeGuion()]
+  : modelosParaConversar({ groq: config.GROQ_API_KEY, gemini: config.GEMINI_API_KEY });
+// Con la clave de Gemini busca en la información del club por significado; sin ella (o con el guion), por palabras
+const vectores = config.GEMINI_API_KEY && !deGuion ? modeloDeVectores(config.GEMINI_API_KEY) : null;
 // Se lee el índice al arrancar: si el archivo está roto, la API no parte (y Render deja la versión anterior)
 const { pedazos } = indiceDelClub();
 
@@ -43,12 +47,16 @@ servidorHttp.listen(config.PORT, () => {
       : "Correos solo en la consola (falta BREVO_API_KEY)",
   );
   console.log(
-    modelos.length > 0
-      ? `Asistente con ${modelos.map((modelo) => modelo.modelId).join(", ")} (en ese orden)`
-      : "Asistente apagado (faltan GROQ_API_KEY y GEMINI_API_KEY)",
+    deGuion
+      ? "Asistente de guion: responde siempre igual, sin IA (ASISTENTE_DE_GUION, solo para los tests e2e)"
+      : modelos.length > 0
+        ? `Asistente con ${modelos.map((modelo) => modelo.modelId).join(", ")} (en ese orden)`
+        : "Asistente apagado (faltan GROQ_API_KEY y GEMINI_API_KEY)",
   );
   console.log(
     `Información del club: ${pedazos.length} secciones, ` +
-      (vectores ? `búsqueda por significado con ${MODELO_DE_VECTORES}` : "búsqueda por palabras (falta GEMINI_API_KEY)"),
+      (vectores
+        ? `búsqueda por significado con ${MODELO_DE_VECTORES}`
+        : `búsqueda por palabras (${deGuion ? "asistente de guion" : "falta GEMINI_API_KEY"})`),
   );
 });

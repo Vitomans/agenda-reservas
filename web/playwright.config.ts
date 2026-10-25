@@ -42,8 +42,9 @@ export default defineConfig({
       cwd: "../api",
       url: "http://localhost:4000/api/salud",
       reuseExistingServer: false,
-      // Sin socios simulados: así nadie más reserva mientras corren los tests
-      env: { SIMULAR_CLUB: "false", CLAVE_DE_LA_WEB },
+      // Sin socios simulados: así nadie más reserva mientras corren los tests.
+      // El asistente responde con un guion fijo, sin IA: los tests no gastan la cuota ni dependen de internet.
+      env: { SIMULAR_CLUB: "false", CLAVE_DE_LA_WEB, ASISTENTE_DE_GUION: "true" },
     },
     {
       command: enCI ? "npm start" : "npm run dev",

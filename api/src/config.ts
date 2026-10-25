@@ -25,6 +25,8 @@ const esquema = z.object({
   // Clave de Gemini (plan gratis), con la que el asistente busca en la información del club por significado.
   // Sin ella, busca por palabras.
   GEMINI_API_KEY: z.string().min(1).optional(),
+  // Para los tests e2e: el asistente responde con un guion fijo, sin preguntarle nada a una IA (ver asistente/guion.ts)
+  ASISTENTE_DE_GUION: z.stringbool().default(false),
 });
 
 const resultado = esquema.safeParse(process.env);

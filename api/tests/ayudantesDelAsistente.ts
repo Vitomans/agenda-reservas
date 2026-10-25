@@ -75,6 +75,8 @@ const leerComoTexto: Parameters<request.Test["parse"]>[0] = (respuesta, listo) =
 
 export type Evento = {
   type: string;
+  toolName?: string;
+  input?: unknown;
   delta?: string;
   errorText?: string;
   output?: unknown;
