@@ -9,6 +9,7 @@ import {
   useDisponibilidadDelClub,
   useEntrarComoInvitado,
   useHorario,
+  usePronostico,
   useRecursos,
   useReservar,
   useSesion,
@@ -61,6 +62,8 @@ export function Reservar() {
   // En vivo: la cancha que se mira o, en la vista por hora, todas
   const canchasEnVivo = vista === "cancha" ? (recurso ? [recurso.id] : []) : (recursos.data?.map((r) => r.id) ?? []);
   const enVivo = useTiempoReal(canchasEnVivo);
+  // El tiempo del día que se mira: se pide al elegir el día, así la barra para reservar lo muestra apenas aparece
+  const pronostico = usePronostico(dia);
 
   // Las dos vistas se pasan a casillas (una cancha a una hora). useMemo hace que el arreglo cambie
   // solo cuando llegan datos nuevos, que es lo que necesita useCambiosEnVivo para comparar.
@@ -299,6 +302,7 @@ export function Reservar() {
           casilla={elegidaLibre}
           dia={dia}
           zonaHoraria={zonaHoraria}
+          pronostico={pronostico.data?.find((hora) => hora.hora === elegidaLibre.hora)}
           canchasLibres={canchasLibres}
           onElegirCancha={(recursoId) => setEleccion({ recursoId, inicio: elegidaLibre.inicio })}
           conSesion={usuario !== null}

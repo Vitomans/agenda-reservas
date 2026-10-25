@@ -7,7 +7,9 @@ import type {
   PedidoDeCancelacion,
   PedidoDeHorarios,
   PedidoDeInformacion,
+  PedidoDePronostico,
   PedidoDeReserva,
+  PronosticoDelChat,
   ReservaDelChat,
   ResultadoDeCancelacion,
   ResultadoDeReserva,
@@ -23,6 +25,7 @@ export type MensajeDelAsistente = UIMessage<
   {
     verHorariosLibres: { input: PedidoDeHorarios; output: HorariosLibres };
     buscarInformacion: { input: PedidoDeInformacion; output: InformacionDelClub };
+    verPronostico: { input: PedidoDePronostico; output: PronosticoDelChat };
     reservar: { input: PedidoDeReserva; output: ResultadoDeReserva };
     verMisReservas: { input: Record<string, never>; output: MisReservasDelChat };
     cancelarReserva: { input: PedidoDeCancelacion; output: ResultadoDeCancelacion };

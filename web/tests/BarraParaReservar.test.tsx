@@ -65,4 +65,19 @@ describe("BarraParaReservar", () => {
 
     expect(onElegirCancha).toHaveBeenCalledWith("cancha-4");
   });
+
+  it("con pronóstico, muestra el tiempo que hará a esa hora y de dónde sale", () => {
+    dibujar({ pronostico: { hora: "19:00", grados: 18, cielo: "lluvia-ligera", descripcion: "lluvia ligera", deNoche: false } });
+
+    // El lector de pantalla lo lee como "Pronóstico: 18 °C · lluvia ligera"
+    expect(screen.getByText("Pronóstico:", { exact: false }).parentElement).toHaveTextContent("Pronóstico: 18 °C · lluvia ligera");
+    expect(screen.getByRole("link", { name: "Datos de MET Norway" })).toHaveAttribute("href", "https://www.met.no/en");
+  });
+
+  it("sin pronóstico, la barra sigue igual", () => {
+    dibujar();
+
+    expect(screen.queryByText(/°C/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Datos de MET Norway" })).not.toBeInTheDocument();
+  });
 });

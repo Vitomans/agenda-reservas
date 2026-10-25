@@ -27,6 +27,11 @@ export function nombreDelDia(dia: string, hoy: string) {
   return sinPunto(new Intl.DateTimeFormat(IDIOMA, { weekday: "short", timeZone: "UTC" }).format(mediodia(dia)));
 }
 
+// 19 → "19:00", como el asistente pide las horas (ver api/src/asistente/reservas.ts)
+export function horaEnPunto(hora: number) {
+  return `${String(hora).padStart(2, "0")}:00`;
+}
+
 // El número del día del mes: "2026-10-14" → "14"
 export function numeroDelDia(dia: string) {
   return String(Number(dia.slice(8, 10)));

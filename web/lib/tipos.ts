@@ -94,6 +94,48 @@ export type InformacionDelClub = {
   forma: "significado" | "palabras"; // cómo buscó: por significado (con Gemini) o por palabras (el respaldo)
 };
 
+// Cómo va a estar el cielo (ver api/src/meteorologo.ts)
+export type Cielo =
+  | "despejado"
+  | "poco-nublado"
+  | "parcial"
+  | "nublado"
+  | "niebla"
+  | "lluvia-ligera"
+  | "lluvia"
+  | "lluvia-fuerte"
+  | "aguanieve"
+  | "nieve"
+  | "tormenta";
+
+// El tiempo a una hora del club, de GET /api/pronostico (ver api/src/servicios/pronostico.ts)
+export type HoraDelPronostico = {
+  hora: string; // "19:00"
+  grados: number;
+  cielo: Cielo;
+  descripcion: string; // el cielo en palabras: "lluvia ligera"
+  deNoche: boolean;
+};
+
+// Lo que el asistente le pide a la herramienta verPronostico (como en verHorariosLibres, "desde" y "hasta" son horas),
+// y lo que ella devuelve: el tiempo de ese día por tramos, las horas seguidas con el mismo cielo
+export type PedidoDePronostico = { fecha: string; desde?: number; hasta?: number };
+
+export type TramoDelPronostico = {
+  desde: string;
+  hasta: string;
+  cielo: Cielo;
+  descripcion: string;
+  deNoche: boolean;
+  minima: number;
+  maxima: number;
+};
+
+export type PronosticoDelChat = {
+  tramos: TramoDelPronostico[];
+  aviso?: string; // por qué no hay pronóstico, por ejemplo si el servicio no responde
+};
+
 // Una reserva como la muestra el asistente (ver api/src/asistente/reservas.ts)
 export type ReservaDelChat = {
   id: string;
@@ -104,9 +146,9 @@ export type ReservaDelChat = {
 };
 
 // Lo que el asistente le pide a la herramienta reservar ("hora": 19 = las 19:00), y lo que ella devuelve:
-// la reserva hecha, o por qué no se pudo
+// la reserva hecha (con el pronóstico de esa hora, para el asistente), o por qué no se pudo
 export type PedidoDeReserva = { fecha: string; hora: number; cancha: string };
-export type ResultadoDeReserva = { reserva?: ReservaDelChat; aviso?: string };
+export type ResultadoDeReserva = { reserva?: ReservaDelChat; pronostico?: { grados: number; descripcion: string }; aviso?: string };
 
 // Lo que devuelve verMisReservas: las próximas reservas de quien conversa
 export type MisReservasDelChat = { reservas: ReservaDelChat[]; aviso?: string };

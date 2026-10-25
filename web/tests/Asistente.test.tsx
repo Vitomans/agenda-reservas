@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Asistente } from "@/components/asistente/Asistente";
@@ -63,13 +63,19 @@ function respuestaConLaReservaHecha() {
   ]);
 }
 
+// El pronóstico de ese viernes a las 19:00
+const PRONOSTICO = { hora: "19:00", grados: 18, cielo: "lluvia-ligera", descripcion: "lluvia ligera", deNoche: false };
+
 // Una API falsa que responde cada pedido al asistente con la siguiente respuesta de la lista.
-// "/api/auth/invitado" crea un jugador invitado, como la de verdad.
+// "/api/auth/invitado" crea un jugador invitado y "/api/pronostico" responde el tiempo del día, como la de verdad.
 function simularConversacion(...respuestas: (() => Response)[]) {
   const fetchFalso = vi.fn(async (url: string) => {
     if (url === "/api/auth/invitado") {
       const usuario = { id: "u-1", nombre: "Invitado 4F2A", email: "invitado-1@invitados.example.com", rol: "CLIENTE" };
       return new Response(JSON.stringify({ usuario }), { status: 201 });
+    }
+    if (url === `/api/pronostico?fecha=${PEDIDO.fecha}`) {
+      return new Response(JSON.stringify({ fecha: PEDIDO.fecha, horas: [PRONOSTICO] }));
     }
     return respuestas.shift()!();
   });
@@ -338,6 +344,9 @@ describe("reservar y cancelar por el chat", () => {
 
     const tarjeta = await pedirUnaReserva();
     expect(tarjeta).toHaveTextContent(DESCRIPCION);
+    // Con el tiempo que hará a esa hora, que la página le pide a la API (no a la IA)
+    expect(await within(tarjeta).findByText(/18 °C · lluvia ligera/)).toBeInTheDocument();
+    expect(within(tarjeta).getByRole("link", { name: "Datos de MET Norway" })).toHaveAttribute("href", "https://www.met.no/en");
 
     await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
 
@@ -364,7 +373,9 @@ describe("reservar y cancelar por el chat", () => {
 
     expect(await screen.findByRole("group", { name: "No la reservaste" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Confirmar" })).not.toBeInTheDocument();
-    expect(fetchFalso).toHaveBeenCalledTimes(1);
+    expect(conversacionesEnviadas(fetchFalso)).toHaveLength(1);
+    // Si la persona dijo que no, el pronóstico ya no importa
+    expect(screen.queryByText(/lluvia ligera/)).not.toBeInTheDocument();
     expect(onCambioDeReserva).not.toHaveBeenCalled();
   });
 
@@ -377,7 +388,7 @@ describe("reservar y cancelar por el chat", () => {
     await userEvent.click(screen.getByRole("button", { name: "Reservar como invitado" }));
 
     expect(await screen.findByRole("group", { name: "Reservada" })).toBeInTheDocument();
-    const urls = fetchFalso.mock.calls.map(([url]) => url);
+    const urls = fetchFalso.mock.calls.map(([url]) => url).filter((url) => !url.startsWith("/api/pronostico"));
     expect(urls).toEqual(["/api/asistente", "/api/auth/invitado", "/api/asistente"]);
   });
 

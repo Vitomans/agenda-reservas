@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { EstadoDeLaTarjeta } from "@/lib/asistente";
 import { Boton, Ruedita } from "../Boton";
 import { Icono } from "./Iconos";
@@ -8,6 +9,8 @@ type Props = {
   estado: Exclude<EstadoDeLaTarjeta, "revisando">;
   // Lo que se va a hacer, armado por la API con los datos de la base: "Cancha 2 · viernes 23 de octubre · 19:00 a 20:00 · $16.000"
   descripcion?: string;
+  // Al reservar, la línea con el tiempo que hará a esa hora ("18 °C · lluvia ligera")
+  pronostico?: ReactNode;
   conSesion: boolean; // sin sesión, al confirmar una reserva se crea un jugador invitado
   ocupado: boolean; // mientras el asistente responde, o mientras se crea el jugador invitado
   onResponder: (confirma: boolean) => void;
@@ -60,7 +63,7 @@ const CLASES: Record<Props["accion"], Record<Props["estado"], string>> = {
 // La tarjeta con la que la persona confirma una reserva (o una cancelación) que le propuso el asistente.
 // La IA no reserva sola: la API espera a que la persona toque "Confirmar". Después, la tarjeta muestra cómo terminó.
 // Si no se pudo, el asistente explica el motivo con palabras justo debajo.
-export function TarjetaDeConfirmacion({ accion, estado, descripcion, conSesion, ocupado, onResponder }: Props) {
+export function TarjetaDeConfirmacion({ accion, estado, descripcion, pronostico, conSesion, ocupado, onResponder }: Props) {
   const textos = TEXTOS[accion];
   const titulo = textos[estado];
   // Sin sesión, reservar es "como invitado", igual que en la barra para reservar de la grilla
@@ -77,6 +80,8 @@ export function TarjetaDeConfirmacion({ accion, estado, descripcion, conSesion, 
         {titulo}
       </p>
       {descripcion && <Descripcion texto={descripcion} />}
+      {/* Solo mientras la reserva sigue en pie: si la persona dijo que no, o no se pudo, ya no importa */}
+      {pronostico && (estado === "pendiente" || estado === "confirmando" || estado === "hecha") && <div className="mt-1.5">{pronostico}</div>}
 
       {estado === "pendiente" && (
         <>

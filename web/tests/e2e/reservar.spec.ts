@@ -13,6 +13,9 @@ test("un visitante ve los horarios sin entrar y reserva como invitado", async ({
 
   await elegirManana(page);
   const hora = await elegirPrimeraHoraLibre(page);
+  // La barra para reservar dice el tiempo que hará a esa hora (en los e2e, un pronóstico de ejemplo, sin internet)
+  await expect(page.getByText(/Pronóstico: \d+ °C · /)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Datos de MET Norway" })).toBeVisible();
   await page.getByRole("button", { name: "Reservar como invitado" }).click();
 
   await expect(page.getByText("¡Listo! Reservaste la Cancha 1")).toBeVisible();

@@ -18,13 +18,16 @@ import {
   SUGERENCIAS,
 } from "@/lib/asistente";
 import { claves, useEntrarComoInvitado } from "@/lib/consultas";
+import { horaEnPunto } from "@/lib/fechas";
 import type { ReservaDelChat } from "@/lib/tipos";
 import { Boton, Ruedita } from "../Boton";
 import { LineasDeCancha } from "../LineasDeCancha";
 import { Pelota } from "../Logo";
+import { PronosticoDeLaHora } from "../Pronostico";
 import { FuentesDelClub } from "./FuentesDelClub";
 import { HorasLibres } from "./HorasLibres";
 import { Icono } from "./Iconos";
+import { PronosticoDelChat } from "./PronosticoDelChat";
 import { ReservasDelChat } from "./ReservasDelChat";
 import { TarjetaDeConfirmacion } from "./TarjetaDeConfirmacion";
 
@@ -226,6 +229,13 @@ export function Asistente({ abierto, onCerrar, conSesion, onCambioDeReserva }: P
       ) : null;
     }
 
+    if (parte.type === "tool-verPronostico") {
+      if (parte.state === "output-available") {
+        return <PronosticoDelChat key={clave} pedido={parte.input} pronostico={parte.output} />;
+      }
+      return respondiendo && parte.state !== "output-error" ? <Buscando key={clave}>Buscando el pronóstico…</Buscando> : null;
+    }
+
     if (parte.type === "tool-verMisReservas") {
       if (parte.state === "output-available") {
         return (
@@ -250,12 +260,19 @@ export function Asistente({ abierto, onCerrar, conSesion, onCambioDeReserva }: P
       }
       // La confirmación que pidió la API: su id es lo que se le responde, y su texto es lo que dice la tarjeta
       const confirmacion = parte.approval;
+      // Al reservar, el tiempo que hará a esa hora (la página lo pide a la API, sin preguntarle a la IA)
+      const pedido = parte.type === "tool-reservar" ? parte.input : undefined;
+      const pronostico =
+        pedido?.fecha && pedido.hora !== undefined ? (
+          <PronosticoDeLaHora fecha={pedido.fecha} hora={horaEnPunto(pedido.hora)} tono="claro" />
+        ) : undefined;
       return (
         <TarjetaDeConfirmacion
           key={clave}
           accion={accion}
           estado={estado}
           descripcion={confirmacion?.requestReason}
+          pronostico={pronostico}
           conSesion={conSesion}
           ocupado={bloqueado || entrarComoInvitado.isPending}
           onResponder={(confirma) => {

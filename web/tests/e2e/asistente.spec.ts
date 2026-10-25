@@ -28,6 +28,8 @@ test("el asistente busca horas libres, reserva con la confirmación de la person
   // ...pero no reserva nada hasta que la persona confirma. La tarjeta la arma la API con los datos de la base.
   const tarjeta = chat.getByRole("group", { name: "¿Confirmas esta reserva?" });
   await expect(tarjeta).toContainText(`${hora} a `);
+  // Con el tiempo que hará a esa hora
+  await expect(tarjeta.getByText(/Pronóstico: \d+ °C · /)).toBeVisible();
   const cancha = (await tarjeta.textContent())!.match(/Cancha \d+/)![0];
   await tarjeta.getByRole("button", { name: "Reservar como invitado" }).click();
 
@@ -49,6 +51,21 @@ test("el asistente busca horas libres, reserva con la confirmación de la person
   await expect(chat.getByRole("group", { name: "Cancelada: la hora quedó libre" })).toBeVisible();
   if (isMobile) await chat.getByRole("button", { name: "Cerrar el asistente" }).click();
   await expect(grilla(page).getByRole("button", { name: new RegExp(`^${hora}, Libre`) })).toBeVisible();
+});
+
+test("el asistente dice el pronóstico del tiempo por tramos", async ({ page }) => {
+  await page.goto("/");
+  const chat = await abrirElChat(page);
+
+  await chat.getByRole("textbox", { name: "Escribe tu pregunta" }).fill("¿Va a llover mañana?");
+  await chat.getByRole("button", { name: "Enviar" }).click();
+
+  // El pronóstico de ejemplo: despejado en la mañana, parcialmente nublado en la tarde y lluvia ligera desde las 20:00
+  const pronostico = chat.getByRole("group", { name: /^Pronóstico del / });
+  await expect(pronostico.getByRole("listitem")).toHaveCount(3);
+  await expect(pronostico.getByRole("listitem").last()).toContainText("lluvia ligera");
+  await expect(pronostico.getByRole("link", { name: "Datos de MET Norway" })).toBeVisible();
+  await expect(chat.getByText("En Santiago, de 08:00 a 12:00: despejado")).toBeVisible();
 });
 
 test("el asistente responde con la información del club y muestra de dónde la sacó", async ({ page }) => {

@@ -4,6 +4,7 @@ import type {
   Bloque,
   Horario,
   HoraDelClub,
+  HoraDelPronostico,
   Recurso,
   RecursoAdmin,
   Reserva,
@@ -25,6 +26,7 @@ export const claves = {
   recursos: ["recursos"],
   disponibilidad: ["disponibilidad"],
   disponibilidadDelClub: ["disponibilidad", "club"],
+  pronostico: ["pronostico"],
   misReservas: ["mis-reservas"],
   correo: ["correo"],
   reservasDelDia: ["admin", "reservas"],
@@ -80,6 +82,19 @@ export function useDisponibilidadDelClub(fecha: string | undefined) {
     queryKey: [...claves.disponibilidadDelClub, fecha],
     queryFn: async () => (await pedirApi<{ horas: HoraDelClub[] }>(`/disponibilidad?fecha=${fecha}`)).horas,
     enabled: Boolean(fecha),
+  });
+}
+
+// El tiempo de un día, hora por hora, para la barra para reservar y la tarjeta del asistente. La API lo trae de
+// MET Norway y lo guarda unos 30 minutos, así que aquí también se guarda 30 minutos.
+// Si no hay pronóstico, no se reintenta ni se muestra un error: la página funciona igual sin él.
+export function usePronostico(fecha: string | undefined) {
+  return useQuery({
+    queryKey: [...claves.pronostico, fecha],
+    queryFn: async () => (await pedirApi<{ horas: HoraDelPronostico[] }>(`/pronostico?fecha=${fecha}`)).horas,
+    enabled: Boolean(fecha),
+    staleTime: 30 * 60 * 1000,
+    retry: false,
   });
 }
 

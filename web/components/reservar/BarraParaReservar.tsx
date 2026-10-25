@@ -2,13 +2,16 @@ import Link from "next/link";
 import type { Casilla } from "@/lib/casillas";
 import { formatearPesos } from "@/lib/dinero";
 import { diaLargo, horaEnElClub } from "@/lib/fechas";
-import type { Recurso } from "@/lib/tipos";
+import type { HoraDelPronostico, Recurso } from "@/lib/tipos";
 import { Boton } from "../Boton";
+import { LineaDelPronostico } from "../Pronostico";
 
 type Props = {
   casilla: Casilla; // la cancha y la hora elegidas (libres)
   dia: string;
   zonaHoraria: string;
+  // El tiempo que hará a esa hora, si hay pronóstico
+  pronostico?: HoraDelPronostico;
   // En la vista por hora: las canchas libres a esa hora, para elegir otra
   canchasLibres?: Recurso[];
   onElegirCancha?: (recursoId: string) => void;
@@ -24,6 +27,7 @@ export function BarraParaReservar({
   casilla,
   dia,
   zonaHoraria,
+  pronostico,
   canchasLibres = [],
   onElegirCancha,
   conSesion,
@@ -40,6 +44,11 @@ export function BarraParaReservar({
         <p className="text-lg font-semibold tabular-nums">
           {casilla.hora} a {horaEnElClub(casilla.fin, zonaHoraria)} · {formatearPesos(casilla.precio)}
         </p>
+        {pronostico && (
+          <div className="mt-1">
+            <LineaDelPronostico pronostico={pronostico} tono="oscuro" />
+          </div>
+        )}
         {canchasLibres.length > 1 && onElegirCancha && (
           <div role="group" aria-label="Cancha" className="mt-2 flex flex-wrap gap-1.5">
             {canchasLibres.map((cancha) => {
