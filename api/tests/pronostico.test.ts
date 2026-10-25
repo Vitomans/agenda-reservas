@@ -1,8 +1,8 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { crearApp } from "../src/app.ts";
-import { type DatosDelTiempo, type Meteorologo, meteorologoDeEjemplo } from "../src/meteorologo.ts";
-import { describirTramo, pronosticoDelDia, tramosDelPronostico } from "../src/servicios/pronostico.ts";
+import { type Cielo, type DatosDelTiempo, type Meteorologo, meteorologoDeEjemplo } from "../src/meteorologo.ts";
+import { describirTramo, pronosticoDelDia, TEXTO_DEL_CIELO, tramosDelPronostico } from "../src/servicios/pronostico.ts";
 import { dia } from "./ayudantes.ts";
 
 // Lo que podría traer MET Norway el lunes 26 de octubre (en Chile, 3 horas menos que en UTC):
@@ -58,6 +58,19 @@ describe("tramosDelPronostico", () => {
       "18:00 a 19:00: parcialmente nublado, 18 °C",
       "19:00 a 21:00: lluvia ligera, 17 a 18 °C",
       "21:00 a 23:00: nublado, 14 a 15 °C",
+    ]);
+  });
+
+  it("junta las horas seguidas de lluvia aunque cambie la fuerza, y dice cuánta", () => {
+    const hora = (h: number, cielo: Cielo) => ({ hora: `${h}:00`, grados: 15, cielo, descripcion: TEXTO_DEL_CIELO[cielo], deNoche: false });
+
+    const conFuerte = tramosDelPronostico([hora(13, "lluvia"), hora(14, "lluvia-ligera"), hora(15, "lluvia-fuerte"), hora(16, "lluvia"), hora(17, "nublado")]);
+    expect(conFuerte.map(describirTramo)).toEqual(["13:00 a 17:00: lluvia, a ratos fuerte, 15 °C", "17:00 a 18:00: nublado, 15 °C"]);
+    expect(conFuerte[0].cielo).toBe("lluvia-fuerte");
+
+    expect(tramosDelPronostico([hora(13, "lluvia-ligera"), hora(14, "lluvia")]).map(describirTramo)).toEqual(["13:00 a 15:00: lluvia, 15 °C"]);
+    expect(tramosDelPronostico([hora(13, "lluvia-fuerte"), hora(14, "lluvia-fuerte")]).map(describirTramo)).toEqual([
+      "13:00 a 15:00: lluvia fuerte, 15 °C",
     ]);
   });
 

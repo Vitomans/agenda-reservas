@@ -80,23 +80,47 @@ export type TramoDelPronostico = {
 // "19:00" → "20:00"
 const horaSiguiente = (hora: string) => `${String(Number(hora.slice(0, 2)) + 1).padStart(2, "0")}:00`;
 
-// Junta las horas seguidas que tienen el mismo cielo. Así el asistente lee (y la página muestra) unas pocas líneas
-// en vez de una por hora.
-export function tramosDelPronostico(horas: HoraDelPronostico[]): TramoDelPronostico[] {
-  const tramos: TramoDelPronostico[] = [];
+// La lluvia cambia de fuerza casi cada hora ("lluvia", "lluvia ligera", "lluvia fuerte"...): si cada cambio fuera
+// un tramo, un día de lluvia tendría 8 o 9. Por eso las horas seguidas de lluvia van juntas, y el tramo dice cuánta.
+const LLUVIAS: Cielo[] = ["lluvia-ligera", "lluvia", "lluvia-fuerte"];
+const esLluvia = (cielo: Cielo) => LLUVIAS.includes(cielo);
 
-  for (const { hora, grados, cielo, descripcion, deNoche } of horas) {
-    const ultimo = tramos.at(-1);
-    if (ultimo && ultimo.cielo === cielo && ultimo.hasta === hora) {
-      ultimo.hasta = horaSiguiente(hora);
-      ultimo.minima = Math.min(ultimo.minima, grados);
-      ultimo.maxima = Math.max(ultimo.maxima, grados);
-    } else {
-      tramos.push({ desde: hora, hasta: horaSiguiente(hora), cielo, descripcion, deNoche, minima: grados, maxima: grados });
-    }
+// "lluvia ligera" o "lluvia fuerte" si es igual todo el tramo, "lluvia, a ratos fuerte" si algunas horas son
+// fuertes, y si no, "lluvia". El ícono es el de la más fuerte.
+function lluviaDelTramo(cielos: Cielo[]): { cielo: Cielo; descripcion: string } {
+  const masFuerte = LLUVIAS.findLast((lluvia) => cielos.includes(lluvia))!;
+  if (cielos.every((cielo) => cielo === masFuerte)) return { cielo: masFuerte, descripcion: TEXTO_DEL_CIELO[masFuerte] };
+  if (masFuerte === "lluvia-fuerte") return { cielo: masFuerte, descripcion: "lluvia, a ratos fuerte" };
+  return { cielo: "lluvia", descripcion: "lluvia" };
+}
+
+// Junta las horas seguidas que tienen el mismo cielo (o lluvia). Así el asistente lee (y la página muestra)
+// unas pocas líneas en vez de una por hora.
+export function tramosDelPronostico(horas: HoraDelPronostico[]): TramoDelPronostico[] {
+  const grupos: HoraDelPronostico[][] = [];
+
+  for (const hora of horas) {
+    const grupo = grupos.at(-1);
+    const anterior = grupo?.at(-1);
+    const mismoCielo = anterior && (anterior.cielo === hora.cielo || (esLluvia(anterior.cielo) && esLluvia(hora.cielo)));
+    if (grupo && mismoCielo && horaSiguiente(anterior.hora) === hora.hora) grupo.push(hora);
+    else grupos.push([hora]);
   }
 
-  return tramos;
+  return grupos.map((grupo) => {
+    const primera = grupo[0];
+    const { cielo, descripcion } = esLluvia(primera.cielo) ? lluviaDelTramo(grupo.map((h) => h.cielo)) : primera;
+    const temperaturas = grupo.map((h) => h.grados);
+    return {
+      desde: primera.hora,
+      hasta: horaSiguiente(grupo.at(-1)!.hora),
+      cielo,
+      descripcion,
+      deNoche: primera.deNoche,
+      minima: Math.min(...temperaturas),
+      maxima: Math.max(...temperaturas),
+    };
+  });
 }
 
 // "16 °C" o "16 a 18 °C"
