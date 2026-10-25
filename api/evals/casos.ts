@@ -168,7 +168,7 @@ export function casos({ dias, horasDeManana, conUnaReserva, conDosReservas }: Co
       ],
     },
 
-    // ---------- Pronóstico del tiempo: que lo consulte, y que no cambie la reserva (las canchas son techadas) ----------
+    // ---------- Pronóstico del tiempo: que lo consulte, y que con lluvia no se juega (las canchas son al aire libre) ----------
     {
       tema: "Pronóstico",
       conversacion: [persona("¿Va a llover el sábado en la tarde?")],
@@ -177,7 +177,11 @@ export function casos({ dias, horasDeManana, conUnaReserva, conDosReservas }: Co
     {
       tema: "Pronóstico",
       conversacion: [persona("Si llueve, ¿se suspende mi partido?")],
-      revisiones: [dice(/techad/iu, "que las canchas son techadas"), noUsa("cancelarReserva")],
+      revisiones: [
+        dice(/aire libre|no se juega/iu, "que con lluvia no se juega"),
+        dice(/cancel/iu, "que la reserva se puede cancelar"),
+        noUsa("cancelarReserva"),
+      ],
     },
 
     // ---------- Reservar y cancelar: siempre con la confirmación de la persona ----------

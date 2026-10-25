@@ -18,7 +18,11 @@ Si no puedes ir, cancela la reserva para que otra persona pueda usar la cancha. 
 
 ## ¿Las canchas son techadas?
 
-Sí. Las 4 canchas son techadas, de vidrio panorámico, con pasto sintético e iluminación LED, así que se juega aunque llueva y también de noche.
+No. Las 4 canchas son al aire libre, de vidrio panorámico, con pasto sintético e iluminación LED para jugar de noche. Conviene mirar el pronóstico del tiempo antes de venir: la página lo muestra al elegir una hora.
+
+## ¿Qué pasa si llueve?
+
+Con lluvia no se juega: las canchas son al aire libre, y el pasto sintético y los vidrios se ponen resbalosos. Si el pronóstico anuncia lluvia para tu hora, cancela la reserva sin costo antes de que empiece y reserva otro día. Si empieza a llover mientras juegas, en recepción te devuelven lo que pagaste.
 
 ## ¿Pueden jugar niños?
 

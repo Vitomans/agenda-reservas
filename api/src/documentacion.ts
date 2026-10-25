@@ -435,7 +435,7 @@ export const documentacion = {
         summary: "El pronóstico del tiempo de un día, hora por hora",
         description: [
           "La temperatura y el cielo a cada hora del club, con datos de MET Norway (el instituto de meteorología de Noruega).",
-          "Las canchas son techadas: sirve para saber qué llevar y cómo llegar.",
+          "Las canchas son al aire libre y con lluvia no se juega: sirve para elegir la hora.",
           "Hora por hora en los próximos 2 o 3 días y en bloques de 6 horas después. La API guarda el pronóstico unos 30 minutos.",
           "Las horas que ya terminaron no vienen.",
         ].join("\n"),

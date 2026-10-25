@@ -8,7 +8,8 @@ import { DIAS_DE_ANTICIPACION, ZONA_HORARIA } from "./servicios/horario.ts";
 // - en los tests e2e (PRONOSTICO_DE_EJEMPLO=true), meteorologoDeEjemplo, con un pronóstico inventado y sin internet
 // - en los tests, sinPronostico o uno con datos fijos
 //
-// Las 4 canchas son techadas: el pronóstico no cambia las reservas, solo sirve para saber qué llevar y cómo llegar.
+// Las 4 canchas son al aire libre y con lluvia no se juega: el pronóstico sirve para elegir la hora, pero nunca
+// bloquea una reserva (si llueve, la persona la cancela sin costo).
 // Lo que se hace con los datos (el tiempo de cada hora del club) está en servicios/pronostico.ts.
 
 const HORA_MS = 60 * 60 * 1000;
@@ -122,7 +123,7 @@ export function leerRespuestaDeMet(json: unknown): DatosDelTiempo {
   return datos;
 }
 
-// El club está en Santiago (su dirección es inventada), así que se usa el centro de la ciudad.
+// El club está en Santiago Centro (su dirección es inventada), así que se usa la Plaza de Armas.
 // MET Norway pide como mucho 4 decimales, y la altura (570 m) le sirve para calcular bien la temperatura.
 export const URL_DE_MET = "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-33.4489&lon=-70.6693&altitude=570";
 
