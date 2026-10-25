@@ -39,6 +39,8 @@ describe("revisiones de estilo", () => {
   it('encuentran las palabras de "vos", aunque tengan tilde', () => {
     expect(estilo("Si querés, tocá una hora.")).toEqual(['Dice palabras de "vos": "querés"']);
     expect(estilo("Hay libres. Elegí la que te sirva.")).toHaveLength(1);
+    // El voseo chileno: el modelo escribió "podís cancelar sin costo"
+    expect(estilo("Si llueve, podís cancelar sin costo.")).toEqual(['Dice palabras de "vos": "podís"']);
     // "elegí" en medio de la frase es "yo elegí": está bien
     expect(estilo("Te muestro la que elegí para ti.")).toEqual([]);
   });

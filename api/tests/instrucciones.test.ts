@@ -42,8 +42,10 @@ describe("instrucciones del asistente", () => {
     expect(texto).toContain("Si piden una hora en que el club está cerrado, di el horario del club");
   });
 
-  it("piden hablar de 'tú' con ejemplos, porque el modelo a veces escribía 'podés' o 'elegí'", () => {
-    expect(instrucciones(JUEVES_EN_LA_TARDE)).toContain('"puedes", "quieres", "elige", "toca" (nunca "podés", "querés", "elegí", "tocá")');
+  it("piden hablar de 'tú' con ejemplos, porque el modelo a veces escribía 'podés', 'elegí' o 'podís'", () => {
+    expect(instrucciones(JUEVES_EN_LA_TARDE)).toContain(
+      '"puedes", "quieres", "elige", "toca" (nunca "podés", "querés", "elegí", "tocá", ni el chileno "podís" o "querís")',
+    );
   });
 
   it("piden buscar en la información del club, decir de dónde sale la respuesta y no inventar", () => {
